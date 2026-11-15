@@ -306,14 +306,26 @@ Se implementó la suite de pruebas automatizadas en `backend/tests/` (`conftest.
 ## 8. Evidencia de Integración Continua (GitHub Actions) y Contenedores Docker (Issues #12 y #13)
 
 ### 8.1. Pipeline de Integración Continua en GitHub Actions (`.github/workflows/ci.yml`)
-Se implementó un pipeline automatizado disparado en cada `push` y `pull_request` hacia `main` y `entrega-2`, dividido en 4 jobs:
+Se implementó un pipeline automatizado disparado en cada `push` y `pull_request` hacia `main` y `entrega-2`, dividido en 5 jobs:
 1. **`lint-pep8` (`Ruff`):** Ejecuta `ruff check .` y `ruff format --check .` validando cumplimiento estricto de PEP 8.
 2. **`unit-tests` (`Pytest`):** Ejecuta `pytest --cov=src --cov-report=term-missing --cov-fail-under=60`, bloqueando el pipeline si la cobertura baja del 60%.
 3. **`security-bandit` (`Bandit`):** Ejecuta análisis estático de seguridad (`bandit -c pyproject.toml -r src/`) con 0 vulnerabilidades.
 4. **`security-pip-audit` (`Pip-Audit`):** Audita `requirements.txt` contra bases de datos CVE/PYSEC con `pip-audit -r requirements.txt`.
+5. **`docker-build-and-healthcheck` (`Docker Compose`):** Compila la imagen (`docker compose build`), levanta el contenedor (`docker compose up -d`) y comprueba que `http://localhost:8000/api/v1/health` y `http://localhost:8000/docs` respondan `HTTP 200`.
 
-> [!NOTE]
-> *La sección de contenedores Docker (Paso 8 — Issue #13) y las capturas finales de GitHub Actions se consolidan en los Pasos 8 y 10.*
+### 8.2. Contenedorización Reproducible con Docker y Docker Compose (Issue #13)
+- **`backend/Dockerfile`:** Basado en `python:3.11-slim`, ordena las capas copiando primero `requirements.txt` para maximizar el caché de construcción, ejecuta la aplicación bajo un usuario sin privilegios (`appuser`, UID `10001`) e incorpora un `HEALTHCHECK` nativo apuntando a `/api/v1/health`.
+- **`backend/.dockerignore` y `.dockerignore`:** Excluyen entornos virtuales (`.venv/`), cachés de pruebas (`.pytest_cache/`, `.ruff_cache/`, `htmlcov/`), archivos `.git` y variables `.env`.
+- **`docker-compose.yml`:** Orquesta el servicio `api` en el puerto `8000:8000` con volumen montado (`./backend/src:/app/src:ro`) para recarga en vivo (*hot-reload*) y red bridge dedicada (`esimma-net`).
+
+```bash
+# Compilar y levantar la API en contenedor
+docker compose up --build -d
+
+# Verificar estado saludable y documentacion OpenAPI
+curl http://localhost:8000/api/v1/health
+# Abrir en navegador: http://localhost:8000/docs
+```
 
 ---
 
@@ -335,4 +347,5 @@ En cumplimiento con el punto 4 de la **Carta Compromiso sobre el Uso de Intelige
 | **Paso 4 — Issue #9** (`[E2-BACKEND]`) | `backend/src/domain/exceptions.py`, `backend/src/services/inscripcion_service.py`, `pago_service.py`, `__init__.py` | Diseño asistido de la jerarquía `DominioError`, `ValidacionDominioError`, `RecursoNoEncontradoError`, `InscripcionInvalidaError` y `PagoRechazadoError`, junto con los bloques completos `try-except-else-finally` y emisión de eventos `logs_actividad` en `finally`. | Verificación de las 4 ramas de ejecución (`try`, `except`, `else`, `finally`), encadenamiento de excepciones (`raise ... from exc`) y formato de telemetría para MongoDB. |
 | **Paso 5 — Issue #10** (`[E2-API]`) | `backend/src/main.py`, `backend/src/api/schemas.py`, `dependencies.py`, `backend/src/api/routers/health.py`, `informacion.py`, `academico.py`, `pagos.py` | Estructuración asistida de esquemas Pydantic v2, routers modulares (`/api/v1/health`, `/informacion`, `/academico`, `/pagos`), configuración de `CORSMiddleware` y manejadores globales de `DominioError` (`400` y `404`). | Validación de respuestas HTTP (`200`, `201`, `400`, `404`, `422`), generación del contrato OpenAPI (`/openapi.json` y `/docs`) y apego a PEP 8 (`ruff`). |
 | **Paso 6 — Issue #11** (`[E2-TESTING]`) | `backend/tests/conftest.py`, `test_domain_poo.py`, `test_services_exceptions.py`, `test_api_endpoints.py`, `backend/pyproject.toml` | Diseño asistido de fixtures sintéticas y 23 pruebas unitarias cubriendo encapsulamiento, polimorfismo, `pytest.raises` en excepciones del dominio, las 4 ramas de `try-except-else-finally` y endpoints de FastAPI. | Ejecución local de `pytest` verificando **23 pruebas aprobadas** y **95.15% de cobertura total** (`>= 60%`), más reporte HTML en `htmlcov/`. |
-| **Paso 7 — Issue #12** (`[E2-CI/CD]`) | `.github/workflows/ci.yml`, `README.md`, `docs/entregas/segunda_entrega.md` | Configuración asistida del workflow de GitHub Actions con 4 jobs independientes (`lint-pep8`, `unit-tests`, `security-bandit`, `security-pip-audit`), caché de `pip` e integración del badge de estado en `README.md`. | Verificación local de los 4 comandos exactos del pipeline (`ruff`, `pytest`, `bandit -c pyproject.toml -r src/`, `pip-audit`) antes de subir la rama. |
+| **Paso 7 — Issue #12** (`[E2-CI/CD]`) | `.github/workflows/ci.yml`, `README.md`, `docs/entregas/segunda_entrega.md` | Configuración asistida del workflow de GitHub Actions con jobs independientes (`lint-pep8`, `unit-tests`, `security-bandit`, `security-pip-audit`), caché de `pip` e integración del badge de estado en `README.md`. | Verificación local y en GitHub Actions (`Run ID 43763292446`, `conclusion: success`) de los jobs del pipeline. |
+| **Paso 8 — Issue #13** (`[E2-DEVOPS]`) | `backend/Dockerfile`, `backend/.dockerignore`, `.dockerignore`, `docker-compose.yml`, `.github/workflows/ci.yml` | Redacción asistida de `Dockerfile` optimizado (`python:3.11-slim`, usuario no-root `appuser`, caché de capas y `HEALTHCHECK` en `/api/v1/health`) y servicio `api` en `docker-compose.yml` con *hot-reload*. | Validación de construcción de imagen (`docker compose build`), levantamiento (`docker compose up`) y respuesta HTTP 200 en `/api/v1/health` y `/docs`. |

@@ -1,0 +1,44 @@
+# ==============================================================================
+# Docker Compose Base — E-SIIMA Killer (E-SIIMA 3)
+# Orquestacion reproducible de la API REST con soporte para hot-reload y
+# monitoreo de salud (/api/v1/health).
+# ==============================================================================
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: esimma-killer-api:0.2.0
+    container_name: esimma-killer-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: "E-SIIMA Killer API (E-SIIMA 3)"
+      APP_VERSION: "0.2.0"
+      ENVIRONMENT: "development"
+      DEBUG: "true"
+      API_V1_PREFIX: "/api/v1"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080,*"
+    volumes:
+      - ./backend/src:/app/src:ro
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - esimma-net
+
+networks:
+  esimma-net:
+    driver: bridge
