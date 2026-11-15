@@ -59,7 +59,7 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-v --cov=src --cov-report=term-missing --cov-fail-under=60"
+addopts = "-v --cov=src --cov-report=term-missing --cov-report=html --cov-fail-under=60"
 
 [tool.coverage.run]
 source = ["src"]
