@@ -124,3 +124,35 @@ jobs:
 
       - name: Auditar vulnerabilidades conocidas en dependencias (CVE/PYSEC)
         run: pip-audit -r requirements.txt
+
+  docker-build-and-healthcheck:
+    name: "Docker Build & Healthcheck (/api/v1/health & /docs)"
+    runs-on: ubuntu-latest
+    needs:
+      - unit-tests
+      - security-bandit
+      - security-pip-audit
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Compilar imagen con Docker Compose
+        run: docker compose build
+
+      - name: Levantar contenedor de la API en segundo plano
+        run: docker compose up -d
+
+      - name: Verificar disponibilidad de /api/v1/health y /docs
+        run: |
+          for i in {1..15}; do
+            if curl -fsS http://localhost:8000/api/v1/health && curl -fsS http://localhost:8000/docs > /dev/null; then
+              echo "API Docker saludable y /docs disponible!"
+              docker compose ps
+              docker compose down
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          docker compose down
+          exit 1

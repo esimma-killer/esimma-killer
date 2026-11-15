@@ -1,0 +1,23 @@
+# Control de versiones y CI
+.git
+.gitignore
+.github
+
+# Entornos virtuales y caches de Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+**/coverage.xml
+
+# Variables de entorno locales y documentacion
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+docs/
+frontend/
