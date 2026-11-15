@@ -263,14 +263,43 @@ El sistema procesa datos que en un entorno real están regulados por la **Ley Fe
 
 ## 7. Evidencia de Pruebas Unitarias (`pytest`) y Cobertura `>= 60%` (Issue #11)
 
-> [!NOTE]
-> *Esta sección se completará con la salida exacta de terminal y el reporte de cobertura al ejecutar el Paso 6 (Issue #11) y el cierre en el Paso 10.*
+Se implementó la suite de pruebas automatizadas en `backend/tests/` (`conftest.py`, `test_domain_poo.py`, `test_services_exceptions.py` y `test_api_endpoints.py`), alcanzando un **95.15% de cobertura total** (superando ampliamente el mínimo requerido de 60%).
 
-- **Comando de verificación:**
+- **Comando ejecutado:**
   ```bash
-  pytest --cov=src --cov-report=term-missing --cov-fail-under=60
+  pytest --cov=src --cov-report=term-missing --cov-report=html --cov-fail-under=60
   ```
-- **Resumen de resultados:** *(Pendiente de adjuntar en Paso 6 / Paso 10).*
+- **Salida verificada de consola (`23 passed`, `95.15% coverage`):**
+  ```text
+  Name                                  Stmts   Miss  Cover   Missing
+  -------------------------------------------------------------------
+  src\__init__.py                           2      0   100%
+  src\api\__init__.py                       0      0   100%
+  src\api\dependencies.py                  11      0   100%
+  src\api\routers\__init__.py               5      0   100%
+  src\api\routers\academico.py             51      4    92%   82-83, 127-128
+  src\api\routers\health.py                 9      0   100%
+  src\api\routers\informacion.py           17      0   100%
+  src\api\routers\pagos.py                 17      0   100%
+  src\api\schemas.py                       69      0   100%
+  src\core\__init__.py                      2      0   100%
+  src\core\config.py                       27      0   100%
+  src\domain\__init__.py                    6      0   100%
+  src\domain\academico.py                 218     21    90%   34, 47, 59, ...
+  src\domain\enums.py                      28      0   100%
+  src\domain\exceptions.py                 39      0   100%
+  src\domain\finanzas.py                   71      4    94%   40, 52, 70, 76
+  src\domain\personas.py                  236     13    94%   58, 91, 159, ...
+  src\main.py                              26      1    96%   87
+  src\services\__init__.py                  3      0   100%
+  src\services\inscripcion_service.py     137      7    95%   133, 153, ...
+  src\services\pago_service.py             57      0   100%
+  -------------------------------------------------------------------
+  TOTAL                                  1031     50    95%
+  Coverage HTML written to dir htmlcov
+  Required test coverage of 60% reached. Total coverage: 95.15%
+  ============================= 23 passed in 1.74s ==============================
+  ```
 
 ---
 
@@ -298,3 +327,4 @@ En cumplimiento con el punto 4 de la **Carta Compromiso sobre el Uso de Intelige
 | **Paso 3 — Issue #8** (`[E2-POO]`) | `backend/src/domain/enums.py`, `personas.py`, `academico.py`, `finanzas.py`, `__init__.py` | Implementación asistida de la jerarquía `Persona` (ABC), `Alumno`, `Administrativo`, `Profesor`, `Materia`, `Inscripcion`, `Calificacion`, `Tarea`, `Entrega` (con hash SHA-256) y `Pago` con `@property`, *Type Hints* y *Shard Key* `id_campus`. | Revisión de polimorfismo (`obtener_perfil_institucional`, `obtener_permisos`), enmascaramiento de CURP/datos sensibles (LFPDPPP) y reglas de negocio de cupos/entregas. |
 | **Paso 4 — Issue #9** (`[E2-BACKEND]`) | `backend/src/domain/exceptions.py`, `backend/src/services/inscripcion_service.py`, `pago_service.py`, `__init__.py` | Diseño asistido de la jerarquía `DominioError`, `ValidacionDominioError`, `RecursoNoEncontradoError`, `InscripcionInvalidaError` y `PagoRechazadoError`, junto con los bloques completos `try-except-else-finally` y emisión de eventos `logs_actividad` en `finally`. | Verificación de las 4 ramas de ejecución (`try`, `except`, `else`, `finally`), encadenamiento de excepciones (`raise ... from exc`) y formato de telemetría para MongoDB. |
 | **Paso 5 — Issue #10** (`[E2-API]`) | `backend/src/main.py`, `backend/src/api/schemas.py`, `dependencies.py`, `backend/src/api/routers/health.py`, `informacion.py`, `academico.py`, `pagos.py` | Estructuración asistida de esquemas Pydantic v2, routers modulares (`/api/v1/health`, `/informacion`, `/academico`, `/pagos`), configuración de `CORSMiddleware` y manejadores globales de `DominioError` (`400` y `404`). | Validación de respuestas HTTP (`200`, `201`, `400`, `404`, `422`), generación del contrato OpenAPI (`/openapi.json` y `/docs`) y apego a PEP 8 (`ruff`). |
+| **Paso 6 — Issue #11** (`[E2-TESTING]`) | `backend/tests/conftest.py`, `test_domain_poo.py`, `test_services_exceptions.py`, `test_api_endpoints.py`, `backend/pyproject.toml` | Diseño asistido de fixtures sintéticas y 23 pruebas unitarias cubriendo encapsulamiento, polimorfismo, `pytest.raises` en excepciones del dominio, las 4 ramas de `try-except-else-finally` y endpoints de FastAPI. | Ejecución local de `pytest` verificando **23 pruebas aprobadas** y **95.15% de cobertura total** (`>= 60%`), más reporte HTML en `htmlcov/`. |
