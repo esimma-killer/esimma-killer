@@ -1,4 +1,4 @@
-"""Capa de Dominio: Entidades POO, enumeraciones y excepciones del negocio educativo."""
+"""Capa de Dominio: Entidades POO, enumeraciones, esquemas NoSQL y excepciones."""
 
 from src.domain.academico import (
     CALIFICACION_MINIMA_APROBATORIA,
@@ -25,6 +25,14 @@ from src.domain.exceptions import (
     ValidacionError,
 )
 from src.domain.finanzas import Pago
+from src.domain.mongo_schemas import (
+    EVENTOS_ENTREGAS_JSON_SCHEMA,
+    LOGS_AUDITORIA_JSON_SCHEMA,
+    MONGO_COLLECTION_SCHEMAS,
+    MONGO_INDEX_DEFINITIONS,
+    TELEMETRIA_ACCESOS_JSON_SCHEMA,
+    MongoCollectionValidator,
+)
 from src.domain.personas import Administrativo, Alumno, Persona, Profesor
 
 __all__ = [
@@ -34,6 +42,7 @@ __all__ = [
     "Calificacion",
     "CampusUAA",
     "DominioError",
+    "EVENTOS_ENTREGAS_JSON_SCHEMA",
     "Entrega",
     "EstadoEntrega",
     "EstadoInscripcion",
@@ -41,13 +50,18 @@ __all__ = [
     "EstatusPago",
     "Inscripcion",
     "InscripcionInvalidaError",
+    "LOGS_AUDITORIA_JSON_SCHEMA",
+    "MONGO_COLLECTION_SCHEMAS",
+    "MONGO_INDEX_DEFINITIONS",
     "Materia",
+    "MongoCollectionValidator",
     "Pago",
     "PagoRechazadoError",
     "Persona",
     "Profesor",
     "RecursoNoEncontradoError",
     "RolSistema",
+    "TELEMETRIA_ACCESOS_JSON_SCHEMA",
     "Tarea",
     "ValidacionDominioError",
     "ValidacionError",
