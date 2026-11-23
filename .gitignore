@@ -34,3 +34,8 @@ dist/
 build/
 out/
 *.log
+
+# Datasets sinteticos masivos autogenerados (~100,000 registros)
+backend/data/synthetic/*.csv
+backend/data/synthetic/*.json
+backend/data/synthetic/*.sql
