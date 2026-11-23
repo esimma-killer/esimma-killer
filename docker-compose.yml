@@ -39,6 +39,25 @@ services:
     networks:
       - esimma-net
 
+  mongodb:
+    image: mongo:7.0
+    container_name: esimma-killer-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: "esimma_analytics"
+    volumes:
+      - ./backend/database/mongodb/init_mongo_schemas.js:/docker-entrypoint-initdb.d/01_init_mongo_schemas.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - esimma-net
+
 networks:
   esimma-net:
     driver: bridge
