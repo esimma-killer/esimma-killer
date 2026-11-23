@@ -34,3 +34,6 @@ dist/
 build/
 out/
 *.log
+
+AGENTS.md
+PLAN_PANTALLAS_FRONTEND.md

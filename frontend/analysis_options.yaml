@@ -1,0 +1,20 @@
+# Configuracion de analisis estatico para el proyecto Flutter.
+# Se ejecuta mediante el comando flutter analyze.
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - web/**
+    - windows/**
+    - linux/**
+
+linter:
+  rules:
+    avoid_print: true
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    always_declare_return_types: true
