@@ -201,14 +201,16 @@ class SyntheticDataGenerator:
                 conteo_sur += 1
 
         # 2. Generar Materias separadas por campus
+        niveles_texto = ("Basico", "Intermedio", "Avanzado", "Superior", "Especializado")
         materias_por_campus: dict[int, list[dict[str, Any]]] = {1: [], 2: []}
         for i in range(1, num_materias + 1):
             id_campus = int(CampusUAA.CENTRAL if i % 2 == 1 else CampusUAA.SUR)
             depto = DEPARTAMENTOS_UAA[i % len(DEPARTAMENTOS_UAA)]
             prof_campus = profesores[(i - 1) % len(profesores)]
+            nivel = niveles_texto[(i - 1) % len(niveles_texto)]
             materia = {
                 "clave": f"ISC-{100 + i:04d}",
-                "nombre": f"Asignatura {depto} Nivel {((i - 1) % 9) + 1}",
+                "nombre": f"Asignatura {depto} Nivel {nivel}",
                 "creditos": 6 + ((i % 3) * 2),
                 "cupo_maximo": 40,
                 "cupo_actual": 0,

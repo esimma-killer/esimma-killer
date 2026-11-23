@@ -108,18 +108,33 @@ class PandasAnalyticsService:
         df = df.drop_duplicates(subset=["matricula"], keep="first").copy()
         duplicados_eliminados = antes_dedup - len(df)
 
-        # 4. Tratamiento e imputacion de valores nulos y fuera de rango en campos secundarios
+        # 4. Tratamiento e imputacion de valores nulos, numeros infiltrados y fuera de rango
         if "nombre" in df.columns:
-            df["nombre"] = df["nombre"].fillna("Sin Nombre").astype(str).str.strip().str.title()
+            df["nombre"] = (
+                df["nombre"]
+                .fillna("Sin Nombre")
+                .astype(str)
+                .str.replace(r"[^A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]", "", regex=True)
+                .str.strip()
+                .str.title()
+            )
+            df.loc[df["nombre"] == "", "nombre"] = "Sin Nombre"
         if "apellidos" in df.columns:
             df["apellidos"] = (
-                df["apellidos"].fillna("Sin Apellido").astype(str).str.strip().str.title()
+                df["apellidos"]
+                .fillna("Sin Apellido")
+                .astype(str)
+                .str.replace(r"[^A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]", "", regex=True)
+                .str.strip()
+                .str.title()
             )
+            df.loc[df["apellidos"] == "", "apellidos"] = "Sin Apellido"
         if "carrera" in df.columns:
             df["carrera"] = (
                 df["carrera"]
                 .fillna("Ingenieria en Sistemas Computacionales")
                 .astype(str)
+                .str.replace(r"[^A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]", "", regex=True)
                 .str.strip()
             )
             df.loc[df["carrera"] == "", "carrera"] = "Ingenieria en Sistemas Computacionales"

@@ -74,6 +74,59 @@ def test_validaciones_encapsuladas_en_setters_de_persona_y_alumno(
         alumno_central.semestre = 0
 
 
+def test_rechazo_estricto_de_numeros_en_campos_de_letras_y_viceversa(
+    alumno_central: Alumno,
+    administrativo_coordinador: Administrativo,
+    profesor_central: Profesor,
+    materia_central: Materia,
+    pago_pendiente: Pago,
+) -> None:
+    """Verifica que campos de letras rechacen numeros y campos numericos rechacen letras."""
+    # 1. Campos de texto que NO deben aceptar numeros
+    with pytest.raises(ValueError, match="solo acepta letras"):
+        alumno_central.nombre = "Gael123"
+
+    with pytest.raises(ValueError, match="solo acepta letras"):
+        alumno_central.apellidos = "Nefarole99"
+
+    with pytest.raises(ValueError, match="solo acepta letras"):
+        alumno_central.carrera = "Ingenieria 123"
+
+    with pytest.raises(ValueError, match="solo acepta letras"):
+        administrativo_coordinador.departamento = "Control 404"
+
+    with pytest.raises(ValueError, match="solo acepta letras"):
+        profesor_central.departamento = "Sistemas 2026"
+
+    with pytest.raises(ValueError, match="solo acepta letras"):
+        materia_central.nombre = "Calculo 101"
+
+    with pytest.raises(ValueError, match="debe contener letras"):
+        pago_pendiente.concepto = "123456"
+
+    # 2. Campos numericos que NO deben aceptar letras ni booleanos
+    with pytest.raises(ValueError, match="solo acepta numeros"):
+        alumno_central.semestre = "sexto"  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="solo acepta numeros"):
+        alumno_central.id_campus = "central"  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="solo acepta numeros"):
+        profesor_central.salario_base = "treinta mil"  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="solo aceptan numeros"):
+        materia_central.creditos = "ocho"  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="solo acepta numeros"):
+        materia_central.cupo_maximo = "treinta"  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="solo acepta valores numericos"):
+        Calificacion("ID345678", "ISC-601", "2026-2", "diez")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="solo acepta numeros"):
+        pago_pendiente.monto = "mil quinientos"  # type: ignore[assignment]
+
+
 def test_herencia_y_polimorfismo_entre_subclases_de_persona(
     alumno_central: Alumno,
     administrativo_coordinador: Administrativo,

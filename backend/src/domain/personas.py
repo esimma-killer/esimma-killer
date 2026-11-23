@@ -6,6 +6,31 @@ from typing import Any
 from src.domain.enums import CampusUAA, EstatusAcademico, RolSistema
 
 
+def _validar_solo_letras(valor: str, nombre_campo: str) -> str:
+    """Valida que un campo de texto contenga unicamente letras y espacios (sin numeros)."""
+    if not isinstance(valor, str):
+        raise ValueError(f"El campo '{nombre_campo}' debe ser una cadena de texto.")
+    limpio = " ".join(valor.strip().split())
+    if not limpio:
+        raise ValueError(f"El campo '{nombre_campo}' no puede estar vacio.")
+    if any(ch.isdigit() for ch in limpio) or not all(
+        ch.isalpha() or ch in {" ", "-", "'"} for ch in limpio
+    ):
+        raise ValueError(
+            f"El campo '{nombre_campo}' solo acepta letras (no se permiten numeros ni simbolos)."
+        )
+    return limpio
+
+
+def _validar_entero_estricto(valor: object, nombre_campo: str) -> int:
+    """Valida que un valor sea exclusivamente un numero entero (rechaza letras y booleanos)."""
+    if isinstance(valor, bool) or not isinstance(valor, int):
+        raise ValueError(
+            f"El campo '{nombre_campo}' solo acepta numeros enteros (no letras ni otro tipo)."
+        )
+    return int(valor)
+
+
 class Persona(ABC):
     """Clase base abstracta que encapsula los datos personales e identidad institucional."""
 
@@ -30,10 +55,7 @@ class Persona(ABC):
 
     @nombre.setter
     def nombre(self, valor: str) -> None:
-        limpio = valor.strip()
-        if not limpio:
-            raise ValueError("El nombre de la persona no puede estar vacio.")
-        self._nombre = limpio
+        self._nombre = _validar_solo_letras(valor, "nombre")
 
     @property
     def apellidos(self) -> str:
@@ -42,10 +64,7 @@ class Persona(ABC):
 
     @apellidos.setter
     def apellidos(self, valor: str) -> None:
-        limpio = valor.strip()
-        if not limpio:
-            raise ValueError("Los apellidos de la persona no pueden estar vacios.")
-        self._apellidos = limpio
+        self._apellidos = _validar_solo_letras(valor, "apellidos")
 
     @property
     def nombre_completo(self) -> str:
@@ -151,7 +170,8 @@ class Alumno(Persona):
 
     @id_campus.setter
     def id_campus(self, valor: CampusUAA | int) -> None:
-        self._id_campus = CampusUAA(int(valor))
+        numero = _validar_entero_estricto(valor, "id_campus")
+        self._id_campus = CampusUAA(numero)
 
     @property
     def carrera(self) -> str:
@@ -160,10 +180,7 @@ class Alumno(Persona):
 
     @carrera.setter
     def carrera(self, valor: str) -> None:
-        limpio = valor.strip()
-        if not limpio:
-            raise ValueError("La carrera no puede estar vacia.")
-        self._carrera = limpio
+        self._carrera = _validar_solo_letras(valor, "carrera")
 
     @property
     def semestre(self) -> int:
@@ -172,9 +189,10 @@ class Alumno(Persona):
 
     @semestre.setter
     def semestre(self, valor: int) -> None:
-        if valor < 1 or valor > 15:
+        numero = _validar_entero_estricto(valor, "semestre")
+        if numero < 1 or numero > 15:
             raise ValueError("El semestre debe estar entre 1 y 15.")
-        self._semestre = int(valor)
+        self._semestre = numero
 
     @property
     def estatus_academico(self) -> EstatusAcademico:
@@ -268,10 +286,7 @@ class Administrativo(Persona):
 
     @departamento.setter
     def departamento(self, valor: str) -> None:
-        limpio = valor.strip()
-        if not limpio:
-            raise ValueError("El departamento no puede estar vacio.")
-        self._departamento = limpio
+        self._departamento = _validar_solo_letras(valor, "departamento")
 
     @property
     def rol(self) -> RolSistema:
@@ -378,10 +393,7 @@ class Profesor(Persona):
 
     @departamento.setter
     def departamento(self, valor: str) -> None:
-        limpio = valor.strip()
-        if not limpio:
-            raise ValueError("El departamento docente no puede estar vacio.")
-        self._departamento = limpio
+        self._departamento = _validar_solo_letras(valor, "departamento docente")
 
     @property
     def cubiculo(self) -> str:
@@ -420,6 +432,8 @@ class Profesor(Persona):
 
     @salario_base.setter
     def salario_base(self, valor: float) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+            raise ValueError("El salario base solo acepta numeros (no letras).")
         if valor < 0:
             raise ValueError("El salario base no puede ser negativo.")
         self._salario_base = float(valor)

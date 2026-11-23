@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictFloat, StrictInt
 
 
 class ErrorResponseModel(BaseModel):
@@ -64,29 +64,46 @@ class InformacionInstitucionalResponse(BaseModel):
 class AlumnoCreateRequest(BaseModel):
     """Datos de entrada para registrar un nuevo Alumno en el dominio."""
 
-    nombre: str = Field(..., min_length=2, max_length=80, examples=["Gael Emiliano"])
-    apellidos: str = Field(..., min_length=2, max_length=100, examples=["Nefarole Lopez"])
+    nombre: str = Field(
+        ...,
+        min_length=2,
+        max_length=80,
+        pattern=r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]+$",
+        description="Nombre del alumno (solo letras y espacios, sin numeros).",
+        examples=["Gael Emiliano"],
+    )
+    apellidos: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        pattern=r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]+$",
+        description="Apellidos del alumno (solo letras y espacios, sin numeros).",
+        examples=["Nefarole Lopez"],
+    )
     curp: str = Field(
         ...,
         min_length=18,
         max_length=18,
+        pattern=r"^[A-Za-z0-9]{18}$",
         description="CURP sintetica de 18 caracteres alfanumericos.",
         examples=["NEFG040101HDFRNN09"],
     )
     email: str = Field(..., examples=["al999999@edu.uaa.mx"])
     matricula: str = Field(..., min_length=3, max_length=20, examples=["ID999999"])
-    id_campus: int = Field(
+    id_campus: StrictInt = Field(
         default=1,
         ge=1,
         le=2,
-        description="Shard Key del campus (1 = Campus Central, 2 = Campus Sur).",
+        description="Shard Key del campus (solo numero entero: 1 = Central, 2 = Sur).",
     )
     carrera: str = Field(
         ...,
         min_length=3,
+        pattern=r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]+$",
+        description="Carrera (solo letras y espacios, sin numeros).",
         examples=["Ingenieria en Sistemas Computacionales"],
     )
-    semestre: int = Field(default=6, ge=1, le=15)
+    semestre: StrictInt = Field(default=6, ge=1, le=15, description="Solo numeros enteros (1-15).")
 
 
 class AlumnoResponse(BaseModel):
@@ -114,11 +131,13 @@ class MateriaCreateRequest(BaseModel):
         ...,
         min_length=3,
         max_length=120,
+        pattern=r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]+$",
+        description="Nombre de la materia (solo letras y espacios, sin numeros).",
         examples=["Arquitectura de Software Distribuido"],
     )
-    creditos: int = Field(..., ge=1, le=20, examples=[8])
-    cupo_maximo: int = Field(..., ge=1, le=200, examples=[30])
-    id_campus: int = Field(default=1, ge=1, le=2, description="Shard Key (1=Central, 2=Sur).")
+    creditos: StrictInt = Field(..., ge=1, le=20, examples=[8])
+    cupo_maximo: StrictInt = Field(..., ge=1, le=200, examples=[30])
+    id_campus: StrictInt = Field(default=1, ge=1, le=2, description="Shard Key (1=Central, 2=Sur).")
     periodo_semestral: str = Field(default="2026-2", examples=["2026-2"])
     prerrequisitos: list[str] = Field(default_factory=list, examples=[[]])
 
@@ -198,13 +217,13 @@ class PagoCreateRequest(BaseModel):
 
     folio: str = Field(..., min_length=3, max_length=30, examples=["PAG-2026-001"])
     alumno_matricula: str = Field(..., min_length=3, examples=["ID345678"])
-    monto: float = Field(..., gt=0, examples=[2450.00])
-    concepto: str = Field(..., min_length=3, examples=["Inscripcion Semestral 2026-2"])
+    monto: StrictFloat | StrictInt = Field(..., gt=0, examples=[2450.00])
+    concepto: str = Field(..., min_length=3, examples=["Inscripcion Semestral"])
     referencia_bancaria: str = Field(
         default="REF-BBVA-UAA-001",
         examples=["REF-BBVA-UAA-001"],
     )
-    id_campus: int = Field(default=1, ge=1, le=2)
+    id_campus: StrictInt = Field(default=1, ge=1, le=2)
 
 
 class PagoResponse(BaseModel):

@@ -54,9 +54,11 @@ class Materia:
 
     @nombre.setter
     def nombre(self, valor: str) -> None:
+        if not isinstance(valor, str):
+            raise ValueError("El nombre de la materia debe ser texto.")
         limpio = valor.strip()
-        if not limpio:
-            raise ValueError("El nombre de la materia no puede estar vacio.")
+        if not limpio or any(ch.isdigit() for ch in limpio):
+            raise ValueError("El nombre de la materia solo acepta letras (sin numeros ni vacio).")
         self._nombre = limpio
 
     @property
@@ -66,6 +68,8 @@ class Materia:
 
     @creditos.setter
     def creditos(self, valor: int) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, int):
+            raise ValueError("Los creditos de la materia solo aceptan numeros enteros (no letras).")
         if valor <= 0 or valor > 20:
             raise ValueError("Los creditos de la materia deben estar entre 1 y 20.")
         self._creditos = int(valor)
@@ -77,6 +81,8 @@ class Materia:
 
     @cupo_maximo.setter
     def cupo_maximo(self, valor: int) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, int):
+            raise ValueError("El cupo maximo solo acepta numeros enteros (no letras).")
         if valor <= 0:
             raise ValueError("El cupo maximo debe ser mayor a 0.")
         self._cupo_maximo = int(valor)
@@ -272,6 +278,8 @@ class Calificacion:
 
     @valor_ponderado.setter
     def valor_ponderado(self, valor: float) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+            raise ValueError("La calificacion solo acepta valores numericos (no letras).")
         numero = float(valor)
         if numero < 0.0 or numero > 10.0:
             raise ValueError("La calificacion debe encontrarse en la escala de 0.0 a 10.0.")

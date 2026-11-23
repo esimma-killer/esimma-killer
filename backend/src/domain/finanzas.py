@@ -59,6 +59,8 @@ class Pago:
 
     @monto.setter
     def monto(self, valor: float) -> None:
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+            raise ValueError("El monto del pago solo acepta numeros (no letras).")
         numero = float(valor)
         if numero <= 0.0:
             raise ValueError("El monto del pago debe ser estrictamente mayor a 0.0.")
@@ -71,9 +73,13 @@ class Pago:
 
     @concepto.setter
     def concepto(self, valor: str) -> None:
+        if not isinstance(valor, str):
+            raise ValueError("El concepto del pago debe ser texto.")
         limpio = valor.strip()
-        if not limpio:
-            raise ValueError("El concepto del pago no puede estar vacio.")
+        if not limpio or not any(ch.isalpha() for ch in limpio):
+            raise ValueError(
+                "El concepto del pago debe contener letras y no puede ser solo numeros o vacio."
+            )
         self._concepto = limpio
 
     @property

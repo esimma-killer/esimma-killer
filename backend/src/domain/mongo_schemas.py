@@ -209,9 +209,11 @@ class MongoCollectionValidator:
                     mensaje=f"El campo '{campo}' debe ser entero (int).",
                     campo=campo,
                 )
-            if isinstance(bson_type, list) and not isinstance(valor, (int, float)):
+            if isinstance(bson_type, list) and (
+                isinstance(valor, bool) or not isinstance(valor, (int, float))
+            ):
                 raise ValidacionDominioError(
-                    mensaje=f"El campo '{campo}' debe ser numerico.",
+                    mensaje=f"El campo '{campo}' debe ser exclusivamente numerico (no letras).",
                     campo=campo,
                 )
 
