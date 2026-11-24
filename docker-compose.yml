@@ -58,6 +58,56 @@ services:
     networks:
       - esimma-net
 
+  postgres-central:
+    image: postgres:17-alpine
+    container_name: esimma-killer-postgres-central
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: esimma_central
+      POSTGRES_USER: esimma_user
+      POSTGRES_PASSWORD: synthetic_pass_only
+    volumes:
+      - postgres_central_data:/var/lib/postgresql/data
+      - ./backend/database/postgresql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/database/postgresql/02_vistas.sql:/docker-entrypoint-initdb.d/02_vistas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esimma_user -d esimma_central"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - esimma-net
+
+  postgres-sur:
+    image: postgres:17-alpine
+    container_name: esimma-killer-postgres-sur
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: esimma_sur
+      POSTGRES_USER: esimma_user
+      POSTGRES_PASSWORD: synthetic_pass_only
+    volumes:
+      - postgres_sur_data:/var/lib/postgresql/data
+      - ./backend/database/postgresql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/database/postgresql/02_vistas.sql:/docker-entrypoint-initdb.d/02_vistas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esimma_user -d esimma_sur"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - esimma-net
+
 networks:
   esimma-net:
     driver: bridge
+
+volumes:
+  postgres_central_data:
+  postgres_sur_data:
