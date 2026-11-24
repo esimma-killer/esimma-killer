@@ -3,13 +3,15 @@ import '../../core/theme/app_colors.dart';
 import '../../data/repositories/portal_repository.dart';
 import '../../domain/entities/portal_models.dart';
 
-// Croquis y ubicador interactivo de edificios de Campus Central y Campus Sur
+// Pantalla completa de Mapa Universitario con croquis amplio, buscador y directorio de edificios
 class InteractiveCampusMapSection extends StatefulWidget {
   final PortalRepository repository;
+  final int initialCampusId;
 
   const InteractiveCampusMapSection({
     super.key,
     required this.repository,
+    this.initialCampusId = 1,
   });
 
   @override
@@ -19,8 +21,25 @@ class InteractiveCampusMapSection extends StatefulWidget {
 
 class _InteractiveCampusMapSectionState
     extends State<InteractiveCampusMapSection> {
-  int _idCampusMapa = 1;
+  late int _idCampusMapa;
   int _indiceEdificioSeleccionado = 0;
+  String _busquedaEdificio = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _idCampusMapa = widget.initialCampusId;
+  }
+
+  // Actualiza el campus del mapa si cambia el campus principal detectado del usuario
+  @override
+  void didUpdateWidget(covariant InteractiveCampusMapSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialCampusId != widget.initialCampusId) {
+      _idCampusMapa = widget.initialCampusId;
+      _indiceEdificioSeleccionado = 0;
+    }
+  }
 
   // Cambia el campus visualizado en el croquis interactivo
   void _cambiarCampusMapa(int idCampus) {
@@ -30,24 +49,38 @@ class _InteractiveCampusMapSectionState
     });
   }
 
-  // Construye el croquis visual a la izquierda y el detalle del edificio a la derecha
+  // Construye el mapa universitario amplio con buscador de salones/edificios y ficha lateral
   @override
   Widget build(BuildContext context) {
-    final List<EdificioMapaUaa> edificios =
+    final List<EdificioMapaUaa> todosEdificios =
         widget.repository.obtenerEdificiosMapa(idCampus: _idCampusMapa);
-    final EdificioMapaUaa edificioActivo =
-        edificios[_indiceEdificioSeleccionado];
+    final List<EdificioMapaUaa> edificiosFiltrados =
+        _busquedaEdificio.trim().isEmpty
+            ? todosEdificios
+            : todosEdificios.where((EdificioMapaUaa e) {
+                final String q = _busquedaEdificio.toLowerCase();
+                return e.codigo.toLowerCase().contains(q) ||
+                    e.nombre.toLowerCase().contains(q) ||
+                    e.tramitesServicios.toLowerCase().contains(q) ||
+                    e.zona.toLowerCase().contains(q);
+              }).toList();
+
+    final List<EdificioMapaUaa> listaActiva =
+        edificiosFiltrados.isNotEmpty ? edificiosFiltrados : todosEdificios;
+    final int safeIndex =
+        _indiceEdificioSeleccionado.clamp(0, listaActiva.length - 1);
+    final EdificioMapaUaa edificioActivo = listaActiva[safeIndex];
 
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final Color secondaryTextColor =
         isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isCompact = screenWidth < 920;
+    final bool isCompact = screenWidth < 980;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -61,7 +94,7 @@ class _InteractiveCampusMapSectionState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'UBICADOR INTERACTIVO DE EDIFICIOS, LABORATORIOS Y CAJAS',
+                      'CROQUIS INTERACTIVO DE EDIFICIOS, AULAS, LABORATORIOS Y CAJAS',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: isDark
@@ -71,7 +104,7 @@ class _InteractiveCampusMapSectionState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Haz clic en cualquier marcador del croquis o de la lista para ver que tramites y salones se encuentran ahi:',
+                      'Selecciona un marcador en el mapa o filtra por nombre/tramite para ubicar cualquier edificio del campus:',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: secondaryTextColor,
                       ),
@@ -82,7 +115,7 @@ class _InteractiveCampusMapSectionState
                   spacing: 8,
                   children: <Widget>[
                     ChoiceChip(
-                      label: const Text('Campus Central (C.U.)'),
+                      label: const Text('Campus Central (Ciudad Universitaria)'),
                       selected: _idCampusMapa == 1,
                       onSelected: (_) => _cambiarCampusMapa(1),
                     ),
@@ -95,17 +128,46 @@ class _InteractiveCampusMapSectionState
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            // Barra de filtro rapido de edificios o laboratorios
+            TextField(
+              decoration: InputDecoration(
+                hintText:
+                    'Filtrar edificio por numero, carrera, laboratorio o tramite (ej. Edif 60, Cajas, Biblioteca, UMD)...',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                filled: true,
+                fillColor: isDark
+                    ? AppColors.darkSurfaceMuted
+                    : AppColors.lightSurfaceMuted,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              onChanged: (String value) {
+                setState(() {
+                  _busquedaEdificio = value;
+                  _indiceEdificioSeleccionado = 0;
+                });
+              },
+            ),
             const SizedBox(height: 20),
             if (isCompact)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  _buildInteractiveCroquisCanvas(edificios, isDark),
-                  const SizedBox(height: 16),
+                  _buildInteractiveCroquisCanvas(
+                    listaActiva,
+                    safeIndex,
+                    isDark,
+                    440,
+                  ),
+                  const SizedBox(height: 20),
                   _buildBuildingDirectoryAndDetail(
                     theme,
-                    edificios,
+                    listaActiva,
                     edificioActivo,
+                    safeIndex,
                     isDark,
                     secondaryTextColor,
                   ),
@@ -116,16 +178,22 @@ class _InteractiveCampusMapSectionState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Expanded(
-                    flex: 6,
-                    child: _buildInteractiveCroquisCanvas(edificios, isDark),
+                    flex: 7,
+                    child: _buildInteractiveCroquisCanvas(
+                      listaActiva,
+                      safeIndex,
+                      isDark,
+                      560,
+                    ),
                   ),
                   const SizedBox(width: 24),
                   Expanded(
                     flex: 5,
                     child: _buildBuildingDirectoryAndDetail(
                       theme,
-                      edificios,
+                      listaActiva,
                       edificioActivo,
+                      safeIndex,
                       isDark,
                       secondaryTextColor,
                     ),
@@ -138,13 +206,15 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Construye el lienzo del croquis universitario con avenidas y pines clickeables
+  // Construye el lienzo amplio del croquis universitario con avenidas, cuadrantes y pines clickeables
   Widget _buildInteractiveCroquisCanvas(
     List<EdificioMapaUaa> edificios,
+    int safeIndex,
     bool isDark,
+    double mapHeight,
   ) {
     return Container(
-      height: 360,
+      height: mapHeight,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF131D2B) : const Color(0xFFE9F0F8),
         borderRadius: BorderRadius.circular(8),
@@ -159,7 +229,7 @@ class _InteractiveCampusMapSectionState
 
           return Stack(
             children: <Widget>[
-              // Trazado arquitectonico de andadores y jardines del campus
+              // Trazado arquitectonico de andadores, estacionamientos y jardines del campus
               Positioned.fill(
                 child: CustomPaint(
                   painter: _CampusCroquisPainter(isDark: isDark),
@@ -167,12 +237,12 @@ class _InteractiveCampusMapSectionState
               ),
               // Etiqueta de orientacion norte y avenida principal
               Positioned(
-                top: 12,
+                top: 14,
                 left: 14,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
+                    horizontal: 12,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryNavy,
@@ -180,24 +250,60 @@ class _InteractiveCampusMapSectionState
                   ),
                   child: Text(
                     _idCampusMapa == 1
-                        ? 'CROQUIS CIUDAD UNIVERSITARIA (AV. UNIVERSIDAD #940)'
-                        : 'CROQUIS CAMPUS SUR (BLVD. JOSE MARIA CHAVEZ)',
+                        ? 'MAPA CIUDAD UNIVERSITARIA - AV. UNIVERSIDAD #940 (NORTE ARRIBA)'
+                        : 'MAPA CAMPUS SUR - BLVD. JOSE MARIA CHAVEZ (NORTE ARRIBA)',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ),
-              // Marcadores interactivos de edificios sobre el croquis
+              // Leyenda inferior de colores del mapa
+              Positioned(
+                bottom: 12,
+                left: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xD9171F2A)
+                        : const Color(0xE6FFFFFF),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color:
+                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Wrap(
+                    spacing: 14,
+                    children: <Widget>[
+                      _buildLegendItem(
+                        color: AppColors.accentCrimson,
+                        label: 'Edificio Seleccionado',
+                      ),
+                      _buildLegendItem(
+                        color: AppColors.primaryNavy,
+                        label: 'Edificios y Laboratorios UAA',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Marcadores interactivos de edificios sobre el croquis amplio
               ...edificios.asMap().entries.map(
                 (MapEntry<int, EdificioMapaUaa> entry) {
                   final int idx = entry.key;
                   final EdificioMapaUaa edif = entry.value;
-                  final bool activo = idx == _indiceEdificioSeleccionado;
-                  final double left = (edif.posX * (width - 110)).clamp(12, width - 110);
-                  final double top = (edif.posY * (height - 48)).clamp(42, height - 48);
+                  final bool activo = idx == safeIndex;
+                  final double left =
+                      (edif.posX * (width - 130)).clamp(14, width - 130);
+                  final double top =
+                      (edif.posY * (height - 56)).clamp(48, height - 56);
 
                   return Positioned(
                     left: left,
@@ -210,8 +316,8 @@ class _InteractiveCampusMapSectionState
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 12,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(
                           color: activo
@@ -220,7 +326,7 @@ class _InteractiveCampusMapSectionState
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: Colors.white,
-                            width: activo ? 2 : 1,
+                            width: activo ? 2.5 : 1.2,
                           ),
                         ),
                         child: Row(
@@ -229,14 +335,14 @@ class _InteractiveCampusMapSectionState
                             Icon(
                               activo ? Icons.location_on : Icons.apartment,
                               color: Colors.white,
-                              size: 14,
+                              size: 16,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Text(
                               edif.codigo,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 11.5,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -254,11 +360,34 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Construye la lista seleccionable de edificios y la ficha informativa del edificio activo
+  // Elemento de leyenda del mapa
+  Widget _buildLegendItem({required Color color, required String label}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+
+  // Construye la ficha detallada del edificio seleccionado y la lista completa de edificios del campus
   Widget _buildBuildingDirectoryAndDetail(
     ThemeData theme,
     List<EdificioMapaUaa> edificios,
     EdificioMapaUaa edificioActivo,
+    int safeIndex,
     bool isDark,
     Color secondaryTextColor,
   ) {
@@ -266,10 +395,11 @@ class _InteractiveCampusMapSectionState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color:
-                isDark ? AppColors.darkSurfaceMuted : AppColors.lightSurfaceMuted,
+            color: isDark
+                ? AppColors.darkSurfaceMuted
+                : AppColors.lightSurfaceMuted,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: AppColors.accentCrimson,
@@ -279,23 +409,26 @@ class _InteractiveCampusMapSectionState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: <Widget>[
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                      horizontal: 10,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.accentCrimson,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      edificioActivo.codigo,
+                      'EDIFICIO SELECCIONADO: ${edificioActivo.codigo}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -308,16 +441,16 @@ class _InteractiveCampusMapSectionState
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 edificioActivo.nombre,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
-                edificioActivo.zona,
+                'Ubicacion en campus: ${edificioActivo.zona}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? AppColors.footerAccentBlue
@@ -325,42 +458,118 @@ class _InteractiveCampusMapSectionState
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(height: 10),
+              const Divider(),
               const SizedBox(height: 8),
               Text(
-                'Tramites y espacios: ${edificioActivo.tramitesServicios}',
-                style: theme.textTheme.bodySmall?.copyWith(
+                'Tramites, laboratorios y espacios en este edificio:',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                edificioActivo.tramitesServicios,
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: secondaryTextColor,
-                  height: 1.35,
+                  height: 1.4,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Text(
-          'Selecciona otro edificio del campus:',
-          style: theme.textTheme.labelMedium?.copyWith(
+          'Directorio completo de edificios en este campus (${edificios.length}):',
+          style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: edificios.asMap().entries.map(
-            (MapEntry<int, EdificioMapaUaa> entry) {
-              final bool activo = entry.key == _indiceEdificioSeleccionado;
-              return ChoiceChip(
-                label: Text('${entry.value.codigo} - ${entry.value.nombre.split('(').first.trim()}'),
-                selected: activo,
-                onSelected: (_) {
-                  setState(() {
-                    _indiceEdificioSeleccionado = entry.key;
-                  });
-                },
-              );
-            },
-          ).toList(),
+        const SizedBox(height: 10),
+        ...edificios.asMap().entries.map(
+          (MapEntry<int, EdificioMapaUaa> entry) {
+            final bool activo = entry.key == safeIndex;
+            final EdificioMapaUaa item = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: activo
+                    ? (isDark
+                        ? AppColors.darkSurfaceMuted
+                        : const Color(0xFFE3ECF8))
+                    : (isDark ? AppColors.darkSurface : Colors.white),
+                borderRadius: BorderRadius.circular(6),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    setState(() {
+                      _indiceEdificioSeleccionado = entry.key;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: activo
+                            ? AppColors.secondaryBlue
+                            : (isDark
+                                ? AppColors.darkBorder
+                                : AppColors.lightBorder),
+                      ),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: activo
+                                ? AppColors.accentCrimson
+                                : AppColors.primaryNavy,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            item.codigo,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                item.nombre,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                item.zona,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -396,10 +605,10 @@ class _CampusCroquisPainter extends CustomPainter {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
-          size.width * 0.14,
-          size.height * 0.18,
-          size.width * 0.72,
-          size.height * 0.64,
+          size.width * 0.12,
+          size.height * 0.14,
+          size.width * 0.76,
+          size.height * 0.72,
         ),
         const Radius.circular(8),
       ),
@@ -409,16 +618,26 @@ class _CampusCroquisPainter extends CustomPainter {
     // Andadores peatonales principales del campus
     final Paint pathPaint = Paint()
       ..color = isDark ? const Color(0xFF28374C) : const Color(0xFFC2D1E5)
-      ..strokeWidth = 12;
+      ..strokeWidth = 14;
 
     canvas.drawLine(
-      Offset(size.width * 0.08, size.height * 0.50),
-      Offset(size.width * 0.92, size.height * 0.50),
+      Offset(size.width * 0.06, size.height * 0.50),
+      Offset(size.width * 0.94, size.height * 0.50),
       pathPaint,
     );
     canvas.drawLine(
-      Offset(size.width * 0.50, size.height * 0.12),
-      Offset(size.width * 0.50, size.height * 0.88),
+      Offset(size.width * 0.48, size.height * 0.08),
+      Offset(size.width * 0.48, size.height * 0.92),
+      pathPaint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.25, size.height * 0.14),
+      Offset(size.width * 0.25, size.height * 0.86),
+      pathPaint..strokeWidth = 8,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.74, size.height * 0.14),
+      Offset(size.width * 0.74, size.height * 0.86),
       pathPaint,
     );
   }

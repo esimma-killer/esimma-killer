@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/portal_models.dart';
 
-// Seccion de directorio de servicios fisicos y digitales del campus con horarios
+// Seccion de directorio de servicios fisicos y digitales del campus con horarios y extensiones
 class CampusServicesSection extends StatelessWidget {
   final List<ServicioCampusUaa> servicios;
   final ValueChanged<String> onSelectService;
@@ -47,13 +47,16 @@ class CampusServicesSection extends StatelessWidget {
     );
   }
 
-  // Construye una tarjeta individual con ubicacion, horario y estado del servicio
+  // Construye una tarjeta individual con ubicacion, horario, telefono y estado del servicio
   Widget _buildServiceCard(
     ThemeData theme,
     ServicioCampusUaa servicio,
     bool isDark,
     Color secondaryTextColor,
   ) {
+    final String etiquetaCampus =
+        servicio.idCampus == 1 ? 'Campus Central' : 'Campus Sur';
+
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
@@ -81,23 +84,46 @@ class CampusServicesSection extends StatelessWidget {
                       size: 22,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.statusActive,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      servicio.estadoActual,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                  Wrap(
+                    spacing: 6,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondaryBlue,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          etiquetaCampus,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.statusActive,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          servicio.estadoActual,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -157,6 +183,29 @@ class CampusServicesSection extends StatelessWidget {
                       servicio.horario,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: secondaryTextColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(
+                    Icons.phone_outlined,
+                    size: 16,
+                    color: isDark
+                        ? AppColors.footerAccentBlue
+                        : AppColors.secondaryBlue,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      servicio.telefonoExtension,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: secondaryTextColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

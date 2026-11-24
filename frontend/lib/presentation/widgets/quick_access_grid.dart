@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
-// Modelo interno para definir cada servicio universitario de acceso directo
+// Modelo interno para recursos academicos y plataformas universitarias (3ra columna)
 class QuickAccessItem {
   final String titulo;
   final String subtitulo;
@@ -18,7 +18,7 @@ class QuickAccessItem {
   });
 }
 
-// Columna de accesos directos estilo Publicaciones/Servicios del portal UAA
+// Tercera columna: Recursos Academicos y Biblioteca Digital (sin repetir Herramientas Rapidas)
 class QuickAccessGrid extends StatelessWidget {
   final ValueChanged<String> onSelectModule;
 
@@ -27,38 +27,38 @@ class QuickAccessGrid extends StatelessWidget {
     required this.onSelectModule,
   });
 
-  static const List<QuickAccessItem> _modulos = <QuickAccessItem>[
+  static const List<QuickAccessItem> _recursos = <QuickAccessItem>[
     QuickAccessItem(
-      titulo: 'Aula Virtual - Entrega de Tareas',
-      subtitulo: 'Envio de actividades y proyectos por asignatura',
-      accionTexto: 'Entrar al Aula Virtual ->',
-      icono: Icons.assignment_turned_in_outlined,
+      titulo: 'Biblioteca Digital y Bases Cientificas',
+      subtitulo: 'Acceso remoto a IEEE Xplore, Scopus, Springer y eLibro UAA',
+      accionTexto: 'Consultar acervo digital ->',
+      icono: Icons.menu_book_outlined,
       colorAcento: AppColors.primaryNavy,
     ),
     QuickAccessItem(
-      titulo: 'E-SIIMA - Inscripcion de Materias',
-      subtitulo: 'Seleccion de grupos y horarios del semestre 2026-2',
-      accionTexto: 'Realizar inscripcion ->',
-      icono: Icons.how_to_reg_outlined,
+      titulo: 'Software Institucional y Licencias',
+      subtitulo: 'Descarga gratuita de Office 365, MATLAB, AutoCAD y JetBrains',
+      accionTexto: 'Obtener licencias ->',
+      icono: Icons.developer_board_outlined,
       colorAcento: AppColors.secondaryBlue,
     ),
     QuickAccessItem(
-      titulo: 'Kardex y Calificaciones Parciales',
-      subtitulo: 'Consulta de notas y retroalimentacion de profesores',
-      accionTexto: 'Consultar calificaciones ->',
-      icono: Icons.school_outlined,
+      titulo: 'Repositorio de Tesis y Revistas UAA',
+      subtitulo: 'Proyectos integradores, articulos y Gaceta Universitaria',
+      accionTexto: 'Explorar publicaciones ->',
+      icono: Icons.library_books_outlined,
       colorAcento: AppColors.statusActive,
     ),
     QuickAccessItem(
-      titulo: 'Ventanilla de Pagos de Colegiatura',
-      subtitulo: 'Pago en linea y recibos oficiales por referencia',
-      accionTexto: 'Pagar colegiatura ->',
-      icono: Icons.account_balance_wallet_outlined,
+      titulo: 'Apoyo Psicologico y Tutoria de Pares',
+      subtitulo: 'Asesoria academica en materias de ciencias e ingenieria',
+      accionTexto: 'Solicitar asesoria ->',
+      icono: Icons.support_agent_outlined,
       colorAcento: AppColors.accentCrimson,
     ),
   ];
 
-  // Construye las tarjetas horizontales limpias con boton inferior de acceso general
+  // Construye las tarjetas horizontales de recursos academicos
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -71,7 +71,7 @@ class QuickAccessGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        ..._modulos.map((QuickAccessItem item) {
+        ..._recursos.map((QuickAccessItem item) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Material(
@@ -155,9 +155,10 @@ class QuickAccessGrid extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
           ),
-          onPressed: () => onSelectModule('Todos los Servicios E-SIIMA'),
+          onPressed: () =>
+              onSelectModule('Catalogo Completo de Recursos Academicos UAA'),
           child: const Text(
-            'TODOS LOS SERVICIOS DIGITALES',
+            'TODOS LOS RECURSOS ACADEMICOS',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
