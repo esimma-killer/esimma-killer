@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/aviso_institucional.dart';
 
-// Carrusel hero fotografico con rotacion automatica y flechas que solo aparecen al interactuar
+// Carrusel hero fotografico con transicion animada, rotacion automatica y flechas suaves
 class NoticesCarousel extends StatefulWidget {
   final List<AvisoInstitucional> avisos;
   final ValueChanged<String>? onActionPressed;
@@ -64,7 +64,7 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
     }
   }
 
-  // Avanza manualmente a la siguiente fotografia y detiene el temporizador automatico
+  // Avanza manualmente a la siguiente fotografia con transicion animada
   void _siguienteAvisoManual() {
     if (widget.avisos.isEmpty) return;
     _detenerRotacionPorInteraccion();
@@ -74,7 +74,7 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
     });
   }
 
-  // Retrocede manualmente a la fotografia anterior y detiene el temporizador automatico
+  // Retrocede manualmente a la fotografia anterior con transicion animada
   void _anteriorAvisoManual() {
     if (widget.avisos.isEmpty) return;
     _detenerRotacionPorInteraccion();
@@ -85,7 +85,7 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
     });
   }
 
-  // Construye el banner fotografico ocultando las flechas laterales mientras no este seleccionado
+  // Construye el banner fotografico con cross-fade animado en imagen y texto
   @override
   Widget build(BuildContext context) {
     if (widget.avisos.isEmpty) {
@@ -119,7 +119,7 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
       },
       child: GestureDetector(
         onTap: () {
-          // Al tocar o dar clic en el banner se pausa la rotacion y se alternan las flechas
+          // Al tocar o dar clic en el banner se pausa la rotacion y se muestran/ocultan las flechas
           _detenerRotacionPorInteraccion();
           setState(() {
             _mostrarFlechas = !_mostrarFlechas;
@@ -131,15 +131,33 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
           child: Stack(
             fit: StackFit.expand,
             children: <Widget>[
-              // Fotografia institucional UAA autodimensionada para cubrir todo el banner
-              Image.asset(
-                aviso.imagenAsset,
-                width: double.infinity,
-                height: bannerHeight,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
+              // Transicion animada de fotografia y escala suave al cambiar de diapositiva
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 520),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder:
+                    (Widget child, Animation<double> animation) {
+                  final Animation<double> scaleAnimation =
+                      Tween<double>(begin: 1.03, end: 1.0).animate(animation);
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: scaleAnimation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Image.asset(
+                  aviso.imagenAsset,
+                  key: ValueKey<String>(aviso.idAviso),
+                  width: double.infinity,
+                  height: bannerHeight,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                ),
               ),
-              // Franja inferior plana semitransparente (sin gradientes) para lectura clara
+              // Franja inferior plana semitransparente con texto animado al cambiar de aviso
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Container(
@@ -156,96 +174,129 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: <Widget>[
-                              _buildHeroBadge(
-                                aviso.categoria.toUpperCase(),
-                                AppColors.secondaryBlue,
-                              ),
-                              _buildHeroBadge(
-                                aviso.nombreCampus.toUpperCase(),
-                                AppColors.accentCrimson,
-                              ),
-                              Text(
-                                aviso.fechaPublicacion,
-                                style: const TextStyle(
-                                  color: Color(0xFFD0DCF0),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder:
+                                (Widget child, Animation<double> animation) {
+                              final Animation<Offset> slideAnimation =
+                                  Tween<Offset>(
+                                begin: const Offset(0.02, 0),
+                                end: Offset.zero,
+                              ).animate(animation);
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: slideAnimation,
+                                  child: child,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: <Widget>[
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              );
+                            },
+                            child: Column(
+                              key: ValueKey<String>('texto_${aviso.idAviso}'),
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: <Widget>[
-                                    Text(
-                                      aviso.titulo,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize:
-                                            isMobile ? 17 : (isWide ? 24 : 21),
-                                        fontWeight: FontWeight.w800,
-                                        height: 1.2,
-                                      ),
+                                    _buildHeroBadge(
+                                      aviso.categoria.toUpperCase(),
+                                      AppColors.secondaryBlue,
                                     ),
-                                    const SizedBox(height: 6),
+                                    _buildHeroBadge(
+                                      aviso.nombreCampus.toUpperCase(),
+                                      AppColors.accentCrimson,
+                                    ),
                                     Text(
-                                      aviso.resumen,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: const Color(0xFFE2E9F5),
-                                        fontSize: isMobile ? 13 : 14,
-                                        height: 1.35,
+                                      aviso.fechaPublicacion,
+                                      style: const TextStyle(
+                                        color: Color(0xFFD0DCF0),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              if (!isMobile) ...<Widget>[
-                                const SizedBox(width: 24),
-                                FilledButton(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: AppColors.secondaryBlue,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 14,
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Text(
+                                            aviso.titulo,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: isMobile
+                                                  ? 17
+                                                  : (isWide ? 24 : 21),
+                                              fontWeight: FontWeight.w800,
+                                              height: 1.2,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            aviso.resumen,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: const Color(0xFFE2E9F5),
+                                              fontSize: isMobile ? 13 : 14,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    _detenerRotacionPorInteraccion();
-                                    if (widget.onActionPressed != null) {
-                                      widget.onActionPressed!(aviso.categoria);
-                                    }
-                                  },
-                                  child: const Text(
-                                    'VER INFORMACION',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                    if (!isMobile) ...<Widget>[
+                                      const SizedBox(width: 24),
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              AppColors.secondaryBlue,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 14,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          _detenerRotacionPorInteraccion();
+                                          if (widget.onActionPressed != null) {
+                                            widget.onActionPressed!(
+                                              aviso.categoria,
+                                            );
+                                          }
+                                        },
+                                        child: const Text(
+                                          'VER INFORMACION',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ],
-                            ],
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          // Indicadores inferiores de diapositiva
+                          // Indicadores inferiores con animacion fluida de ancho
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List<Widget>.generate(
@@ -263,7 +314,10 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
                                         _mostrarFlechas = true;
                                       });
                                     },
-                                    child: Container(
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 260),
+                                      curve: Curves.easeOutCubic,
                                       width: activo ? 28 : 10,
                                       height: 8,
                                       decoration: BoxDecoration(
@@ -284,15 +338,23 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
                   ),
                 ),
               ),
-              // Las flechas laterales solo se muestran cuando el alumno pasa el cursor o selecciona el banner
+              // Las flechas laterales aparecen y desaparecen con opacidad suave cuando se interactua
               if (_mostrarFlechas && widget.avisos.length > 1)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
                     padding: const EdgeInsets.only(left: 16),
-                    child: _buildCircleArrowButton(
-                      icon: Icons.chevron_left,
-                      onTap: _anteriorAvisoManual,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 200),
+                      builder:
+                          (BuildContext context, double opacity, Widget? child) {
+                        return Opacity(opacity: opacity, child: child);
+                      },
+                      child: _buildCircleArrowButton(
+                        icon: Icons.chevron_left,
+                        onTap: _anteriorAvisoManual,
+                      ),
                     ),
                   ),
                 ),
@@ -301,9 +363,17 @@ class _NoticesCarouselState extends State<NoticesCarousel> {
                   alignment: Alignment.centerRight,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 16),
-                    child: _buildCircleArrowButton(
-                      icon: Icons.chevron_right,
-                      onTap: _siguienteAvisoManual,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 200),
+                      builder:
+                          (BuildContext context, double opacity, Widget? child) {
+                        return Opacity(opacity: opacity, child: child);
+                      },
+                      child: _buildCircleArrowButton(
+                        icon: Icons.chevron_right,
+                        onTap: _siguienteAvisoManual,
+                      ),
                     ),
                   ),
                 ),

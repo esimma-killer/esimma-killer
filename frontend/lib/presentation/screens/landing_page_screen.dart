@@ -7,6 +7,7 @@ import '../../domain/entities/evento_calendario.dart';
 import '../../domain/entities/portal_models.dart';
 import '../widgets/campus_services_section.dart';
 import '../widgets/daily_summary_and_live_campus_widgets.dart';
+import '../widgets/hover_animated_card.dart';
 import '../widgets/interactive_campus_map_section.dart';
 import '../widgets/notices_carousel.dart';
 import '../widgets/profile_quick_switcher.dart';
@@ -245,20 +246,42 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             ),
             // La barra azul con las secciones solo se muestra afuera en PC o Laptop
             if (isPcOrLaptop) _buildNavyNavigationBar(),
-            // Cuerpo desplazable con la ventana activa (Inicio o Pantalla Secundaria)
+            // Cuerpo desplazable con transicion suave al cambiar entre ventanas del portal
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    _buildActiveWindowContent(
-                      theme: theme,
-                      secondaryTextColor: secondaryTextColor,
-                      isDark: isDark,
-                      isMobile: isMobile,
-                      isTablet: isTablet,
-                      horizontalPadding: horizontalPadding,
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        final Animation<Offset> slideAnimation = Tween<Offset>(
+                          begin: const Offset(0, 0.015),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: slideAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<SeccionPortalUaa>(_seccionActiva),
+                        child: _buildActiveWindowContent(
+                          theme: theme,
+                          secondaryTextColor: secondaryTextColor,
+                          isDark: isDark,
+                          isMobile: isMobile,
+                          isTablet: isTablet,
+                          horizontalPadding: horizontalPadding,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _buildOfficialUaaFooter(isMobile, horizontalPadding),
@@ -721,18 +744,12 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             ...centros.map((CentroAcademicoUaa centro) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
+                child: HoverAnimatedCard(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkSurfaceMuted
-                        : AppColors.lightSurfaceMuted,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                  ),
+                  backgroundColor: isDark
+                      ? AppColors.darkSurfaceMuted
+                      : AppColors.lightSurfaceMuted,
+                  onTap: () => _mostrarAvisoAcceso(centro.nombre),
                   child: Row(
                     children: <Widget>[
                       Container(
@@ -1250,7 +1267,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
           final bool activa = _seccionActiva == item.value;
           return InkWell(
             onTap: () => _navegarASeccion(item.value),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(
                 horizontal: 10,
                 vertical: 5,
@@ -1509,22 +1528,16 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Tarjeta de noticia con miniatura fotografica estilo portal oficial UAA
+  // Tarjeta de noticia con miniatura fotografica y animacion hover/tactil
   Widget _buildNewsCard(
     ThemeData theme,
     Color secondaryTextColor,
     bool isDark,
     AvisoInstitucional aviso,
   ) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-        ),
-      ),
+    return HoverAnimatedCard(
+      padding: EdgeInsets.zero,
+      onTap: () => _mostrarAvisoAcceso(aviso.titulo),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/evento_calendario.dart';
+import 'hover_animated_card.dart';
 
-// Columna de eventos y calendario con el estilo oficial de tarjetas de fecha UAA
+// Columna de eventos y calendario con tarjetas de fecha estilo UAA animadas
 class SchoolCalendarCard extends StatelessWidget {
   final List<EventoCalendario> eventos;
   final VoidCallback? onVerCalendarioCompleto;
@@ -29,15 +30,10 @@ class SchoolCalendarCard extends StatelessWidget {
         ...eventos.map((EventoCalendario item) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Container(
+            child: HoverAnimatedCard(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cardBgColor,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                ),
-              ),
+              backgroundColor: cardBgColor,
+              onTap: onVerCalendarioCompleto,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[

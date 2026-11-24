@@ -308,45 +308,52 @@ class _InteractiveCampusMapSectionState
                   return Positioned(
                     left: left,
                     top: top,
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _indiceEdificioSeleccionado = idx;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: activo
-                              ? AppColors.accentCrimson
-                              : AppColors.primaryNavy,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: activo ? 2.5 : 1.2,
+                    child: AnimatedScale(
+                      scale: activo ? 1.12 : 1.0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _indiceEdificioSeleccionado = idx;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(
-                              activo ? Icons.location_on : Icons.apartment,
+                          decoration: BoxDecoration(
+                            color: activo
+                                ? AppColors.accentCrimson
+                                : AppColors.primaryNavy,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
                               color: Colors.white,
-                              size: 16,
+                              width: activo ? 2.5 : 1.2,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              edif.codigo,
-                              style: const TextStyle(
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(
+                                activo ? Icons.location_on : Icons.apartment,
                                 color: Colors.white,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
+                                size: 16,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                edif.codigo,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -394,88 +401,93 @@ class _InteractiveCampusMapSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.darkSurfaceMuted
-                : AppColors.lightSurfaceMuted,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.accentCrimson,
-              width: 1.5,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          child: Container(
+            key: ValueKey<String>(edificioActivo.codigo),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.darkSurfaceMuted
+                  : AppColors.lightSurfaceMuted,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.accentCrimson,
+                width: 1.5,
+              ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 6,
-                children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentCrimson,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'EDIFICIO SELECCIONADO: ${edificioActivo.codigo}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentCrimson,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'EDIFICIO SELECCIONADO: ${edificioActivo.codigo}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                  Text(
-                    'Horario: ${edificioActivo.horarioAtencion}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    Text(
+                      'Horario: ${edificioActivo.horarioAtencion}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  edificioActivo.nombre,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                edificioActivo.nombre,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Ubicacion en campus: ${edificioActivo.zona}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: isDark
-                      ? AppColors.footerAccentBlue
-                      : AppColors.secondaryBlue,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 6),
+                Text(
+                  'Ubicacion en campus: ${edificioActivo.zona}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppColors.footerAccentBlue
+                        : AppColors.secondaryBlue,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                'Tramites, laboratorios y espacios en este edificio:',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 10),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Tramites, laboratorios y espacios en este edificio:',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                edificioActivo.tramitesServicios,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: secondaryTextColor,
-                  height: 1.4,
+                const SizedBox(height: 4),
+                Text(
+                  edificioActivo.tramitesServicios,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: secondaryTextColor,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 16),

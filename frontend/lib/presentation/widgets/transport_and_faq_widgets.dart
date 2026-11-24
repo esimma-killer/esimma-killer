@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/portal_models.dart';
+import 'hover_animated_card.dart';
 
-// Monitor de Transporte Universitario entre Campus Central y Sur (Pestana Servicios y Horarios)
+// Monitor de Transporte Universitario entre Campus Central y Sur con tarjetas animadas
 class UniversityTransportMonitor extends StatelessWidget {
   final List<RutaTransporteUaa> rutas;
 
@@ -72,19 +73,13 @@ class UniversityTransportMonitor extends StatelessWidget {
                   children: rutas.map((RutaTransporteUaa ruta) {
                     return SizedBox(
                       width: itemW,
-                      child: Container(
+                      child: HoverAnimatedCard(
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.darkSurfaceMuted
-                              : AppColors.lightSurfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.darkBorder
-                                : AppColors.lightBorder,
-                          ),
-                        ),
+                        backgroundColor: isDark
+                            ? AppColors.darkSurfaceMuted
+                            : AppColors.lightSurfaceMuted,
+                        activeBorderColor: AppColors.statusActive,
+                        onTap: () {},
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
@@ -156,7 +151,7 @@ class UniversityTransportMonitor extends StatelessWidget {
   }
 }
 
-// Guia interactiva paso a paso de tramites frecuentes (Pestana Calendario y Tramites)
+// Guia interactiva paso a paso de tramites frecuentes con tarjetas animadas
 class StepByStepProceduresFaq extends StatelessWidget {
   final List<GuiaTramiteFaqUaa> guias;
 
@@ -202,18 +197,12 @@ class StepByStepProceduresFaq extends StatelessWidget {
             ...guias.map((GuiaTramiteFaqUaa item) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
+                child: HoverAnimatedCard(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkSurfaceMuted
-                        : AppColors.lightSurfaceMuted,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                  ),
+                  backgroundColor: isDark
+                      ? AppColors.darkSurfaceMuted
+                      : AppColors.lightSurfaceMuted,
+                  onTap: () {},
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/portal_models.dart';
+import 'hover_animated_card.dart';
 
 // Panel condicional "Tu Resumen de Hoy": oculta cualquier tarjeta o seccion cuyo valor sea null
 class DailySummaryBanner extends StatelessWidget {
@@ -64,7 +65,7 @@ class DailySummaryBanner extends StatelessWidget {
       );
     }
 
-    // Solo se muestra si realmente existe un adeudo pendiente (cuando es null no se renderiza nada)
+    // Solo se muestra si realmente existe un adeudo pendiente
     if (resumen.adeudoPendiente != null) {
       tarjetasActivas.add(
         _buildSummaryCard(
@@ -99,23 +100,29 @@ class DailySummaryBanner extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints constraints) {
-                  final double maxW = constraints.maxWidth;
-                  final int count = tarjetasActivas.length;
-                  final int cols =
-                      maxW >= 960 ? count : (maxW >= 620 ? (count > 1 ? 2 : 1) : 1);
-                  const double spacing = 14;
-                  final double itemW = (maxW - (spacing * (cols - 1))) / cols;
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                child: LayoutBuilder(
+                  key: ValueKey<String>(sesion.identificador),
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final double maxW = constraints.maxWidth;
+                    final int count = tarjetasActivas.length;
+                    final int cols = maxW >= 960
+                        ? count
+                        : (maxW >= 620 ? (count > 1 ? 2 : 1) : 1);
+                    const double spacing = 14;
+                    final double itemW =
+                        (maxW - (spacing * (cols - 1))) / cols;
 
-                  return Wrap(
-                    spacing: spacing,
-                    runSpacing: spacing,
-                    children: tarjetasActivas.map((Widget card) {
-                      return SizedBox(width: itemW, child: card);
-                    }).toList(),
-                  );
-                },
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: tarjetasActivas.map((Widget card) {
+                        return SizedBox(width: itemW, child: card);
+                      }).toList(),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -124,7 +131,7 @@ class DailySummaryBanner extends StatelessWidget {
     );
   }
 
-  // Construye una tarjeta individual de aviso activo del resumen diario
+  // Construye una tarjeta individual animada del resumen diario
   Widget _buildSummaryCard({
     required ThemeData theme,
     required bool isDark,
@@ -136,67 +143,56 @@ class DailySummaryBanner extends StatelessWidget {
     required Color colorAcento,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: isDark ? AppColors.darkSurfaceMuted : AppColors.lightSurfaceMuted,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
+    return HoverAnimatedCard(
+      padding: const EdgeInsets.all(14),
+      backgroundColor:
+          isDark ? AppColors.darkSurfaceMuted : AppColors.lightSurfaceMuted,
+      activeBorderColor: colorAcento,
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
               color: colorAcento,
-              width: 1.5,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icono, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  etiqueta,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? AppColors.footerAccentBlue : colorAcento,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  titulo,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (detalle.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 2),
+                  Text(
+                    detalle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorAcento,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(icono, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      etiqueta,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? AppColors.footerAccentBlue : colorAcento,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      titulo,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (detalle.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 2),
-                      Text(
-                        detalle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: secondaryTextColor,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -215,7 +211,7 @@ class LiveCampusOccupancyAndDiningSection extends StatelessWidget {
     required this.onTapAction,
   });
 
-  // Renderiza la disponibilidad de laboratorios/cubiculos y el menu del comedor si existen datos
+  // Renderiza la disponibilidad de laboratorios con barras animadas y el menu del comedor
   @override
   Widget build(BuildContext context) {
     if (espacios.isEmpty && menusComedor.isEmpty) {
@@ -264,51 +260,71 @@ class LiveCampusOccupancyAndDiningSection extends StatelessWidget {
                   (esp.lugaresLibres / esp.capacidadTotal).clamp(0.0, 1.0);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      spacing: 8,
-                      children: <Widget>[
-                        Text(
-                          esp.nombreEspacio,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                child: HoverAnimatedCard(
+                  padding: const EdgeInsets.all(12),
+                  backgroundColor: isDark
+                      ? AppColors.darkSurfaceMuted
+                      : AppColors.lightSurfaceMuted,
+                  activeBorderColor: AppColors.statusActive,
+                  onTap: () => onTapAction(esp.nombreEspacio),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 8,
+                        children: <Widget>[
+                          Text(
+                            esp.nombreEspacio,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${esp.lugaresLibres} libres de ${esp.capacidadTotal}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? AppColors.footerAccentBlue
-                                : AppColors.statusActive,
+                          Text(
+                            '${esp.lugaresLibres} libres de ${esp.capacidadTotal}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? AppColors.footerAccentBlue
+                                  : AppColors.statusActive,
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        esp.ubicacion,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: secondaryTextColor,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      esp.ubicacion,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: secondaryTextColor,
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: porcentajeLibre,
-                        minHeight: 7,
-                        backgroundColor: isDark
-                            ? AppColors.darkSurfaceMuted
-                            : AppColors.lightSurfaceMuted,
-                        color: AppColors.statusActive,
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: TweenAnimationBuilder<double>(
+                          tween:
+                              Tween<double>(begin: 0.0, end: porcentajeLibre),
+                          duration: const Duration(milliseconds: 550),
+                          curve: Curves.easeOutCubic,
+                          builder: (
+                            BuildContext context,
+                            double animatedValue,
+                            Widget? _,
+                          ) {
+                            return LinearProgressIndicator(
+                              value: animatedValue,
+                              minHeight: 7,
+                              backgroundColor: isDark
+                                  ? AppColors.darkBackground
+                                  : Colors.white,
+                              color: AppColors.statusActive,
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             }),
@@ -350,18 +366,12 @@ class LiveCampusOccupancyAndDiningSection extends StatelessWidget {
             ...menusComedor.map((MenuComedorUaa menu) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
+                child: HoverAnimatedCard(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkSurfaceMuted
-                        : AppColors.lightSurfaceMuted,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                  ),
+                  backgroundColor: isDark
+                      ? AppColors.darkSurfaceMuted
+                      : AppColors.lightSurfaceMuted,
+                  onTap: () => onTapAction(menu.nombreComedor),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -442,7 +452,7 @@ class LiveCampusOccupancyAndDiningSection extends StatelessWidget {
   }
 }
 
-// Seccion para la Pagina Principal: Convocatorias Abiertas del Mes con Contador de Dias
+// Seccion para la Pagina Principal: Convocatorias Abiertas del Mes con tarjetas animadas
 class OpenCallsSection extends StatelessWidget {
   final List<ConvocatoriaUaa> convocatorias;
   final ValueChanged<String> onSelectCall;
@@ -478,81 +488,79 @@ class OpenCallsSection extends StatelessWidget {
           children: convocatorias.map((ConvocatoriaUaa conv) {
             return SizedBox(
               width: itemW,
-              child: Card(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => onSelectCall(conv.titulo),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: HoverAnimatedCard(
+                padding: const EdgeInsets.all(16),
+                activeBorderColor: conv.urgente
+                    ? AppColors.accentCrimson
+                    : AppColors.secondaryBlue,
+                onTap: () => onSelectCall(conv.titulo),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: <Widget>[
-                        Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: conv.urgente
-                                    ? AppColors.accentCrimson
-                                    : AppColors.secondaryBlue,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                conv.diasRestantesTexto,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: conv.urgente
+                                ? AppColors.accentCrimson
+                                : AppColors.secondaryBlue,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            conv.diasRestantesTexto,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
                             ),
-                            Text(
-                              conv.dirigidoA,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: secondaryTextColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          conv.titulo,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
                           ),
                         ),
-                        const SizedBox(height: 6),
                         Text(
-                          conv.descripcion,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          conv.dirigidoA,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
                             color: secondaryTextColor,
-                            height: 1.35,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Consultar bases en E-SIIMA ->',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? AppColors.footerAccentBlue
-                                : AppColors.primaryNavy,
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    Text(
+                      conv.titulo,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      conv.descripcion,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: secondaryTextColor,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Consultar bases en E-SIIMA ->',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isDark
+                            ? AppColors.footerAccentBlue
+                            : AppColors.primaryNavy,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );

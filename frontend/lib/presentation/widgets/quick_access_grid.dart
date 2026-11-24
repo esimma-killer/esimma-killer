@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import 'hover_animated_card.dart';
 
 // Modelo interno para recursos academicos y plataformas universitarias (3ra columna)
 class QuickAccessItem {
@@ -18,7 +19,7 @@ class QuickAccessItem {
   });
 }
 
-// Tercera columna: Recursos Academicos y Biblioteca Digital (sin repetir Herramientas Rapidas)
+// Tercera columna: Recursos Academicos y Biblioteca Digital con tarjetas animadas
 class QuickAccessGrid extends StatelessWidget {
   final ValueChanged<String> onSelectModule;
 
@@ -58,7 +59,7 @@ class QuickAccessGrid extends StatelessWidget {
     ),
   ];
 
-  // Construye las tarjetas horizontales de recursos academicos
+  // Construye las tarjetas horizontales de recursos academicos con animacion hover/tactil
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -74,73 +75,61 @@ class QuickAccessGrid extends StatelessWidget {
         ..._recursos.map((QuickAccessItem item) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Material(
-              color: cardBgColor,
-              borderRadius: BorderRadius.circular(8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => onSelectModule(item.titulo),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            child: HoverAnimatedCard(
+              padding: const EdgeInsets.all(14),
+              backgroundColor: cardBgColor,
+              activeBorderColor: item.colorAcento,
+              onTap: () => onSelectModule(item.titulo),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: item.colorAcento,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      item.icono,
+                      color: Colors.white,
+                      size: 24,
                     ),
                   ),
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: item.colorAcento,
-                          borderRadius: BorderRadius.circular(6),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          item.titulo,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.primaryNavy,
+                          ),
                         ),
-                        child: Icon(
-                          item.icono,
-                          color: Colors.white,
-                          size: 24,
+                        const SizedBox(height: 3),
+                        Text(
+                          item.subtitulo,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: secondaryTextColor,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              item.titulo,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? AppColors.darkTextPrimary
-                                    : AppColors.primaryNavy,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.subtitulo,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: secondaryTextColor,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              item.accionTexto,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? AppColors.footerAccentBlue
-                                    : AppColors.secondaryBlue,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 5),
+                        Text(
+                          item.accionTexto,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? AppColors.footerAccentBlue
+                                : AppColors.secondaryBlue,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           );

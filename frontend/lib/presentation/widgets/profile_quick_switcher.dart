@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/portal_models.dart';
+import 'hover_animated_card.dart';
 
-// Panel de herramientas rapidas que muestra unicamente las acciones del rol en sesion
+// Panel de herramientas rapidas con tarjetas animadas al pasar el cursor o tocar
 class ProfileQuickSwitcher extends StatelessWidget {
   final SesionUsuarioUaa sesionActiva;
   final int idCampusSeleccionado;
@@ -65,7 +66,6 @@ class ProfileQuickSwitcher extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Selector limpio entre Campus Central y Campus Sur (sin Ver Ambos ni texto Principal)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -85,32 +85,39 @@ class ProfileQuickSwitcher extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double maxW = constraints.maxWidth;
-                final int cols = maxW >= 1150
-                    ? 5
-                    : (maxW >= 720 ? 3 : (maxW >= 460 ? 2 : 1));
-                const double spacing = 12;
-                final double cardW = (maxW - (spacing * (cols - 1))) / cols;
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              child: LayoutBuilder(
+                key: ValueKey<String>(
+                  '${sesionActiva.identificador}_$idCampusSeleccionado',
+                ),
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double maxW = constraints.maxWidth;
+                  final int cols = maxW >= 1150
+                      ? 5
+                      : (maxW >= 720 ? 3 : (maxW >= 460 ? 2 : 1));
+                  const double spacing = 12;
+                  final double cardW = (maxW - (spacing * (cols - 1))) / cols;
 
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: acciones.map((AccionPerfilUaa item) {
-                    return SizedBox(
-                      width: cardW,
-                      child: _buildActionCard(
-                        context,
-                        item,
-                        esProfesor,
-                        isDark,
-                        secondaryTextColor,
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: acciones.map((AccionPerfilUaa item) {
+                      return SizedBox(
+                        width: cardW,
+                        child: _buildActionCard(
+                          context,
+                          item,
+                          esProfesor,
+                          isDark,
+                          secondaryTextColor,
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -118,7 +125,7 @@ class ProfileQuickSwitcher extends StatelessWidget {
     );
   }
 
-  // Construye cada tarjeta de accion rapida para el rol activo
+  // Construye cada tarjeta de accion rapida con animacion hover y tactil
   Widget _buildActionCard(
     BuildContext context,
     AccionPerfilUaa item,
@@ -127,85 +134,76 @@ class ProfileQuickSwitcher extends StatelessWidget {
     Color secondaryTextColor,
   ) {
     final ThemeData theme = Theme.of(context);
-    return Material(
-      color: isDark ? AppColors.darkSurfaceMuted : AppColors.lightSurfaceMuted,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => onAccionPressed(item.titulo),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final Color accentColor =
+        esProfesor ? AppColors.accentCrimson : AppColors.secondaryBlue;
+
+    return HoverAnimatedCard(
+      padding: const EdgeInsets.all(14),
+      backgroundColor:
+          isDark ? AppColors.darkSurfaceMuted : AppColors.lightSurfaceMuted,
+      activeBorderColor: accentColor,
+      onTap: () => onAccionPressed(item.titulo),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: <Widget>[
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 6,
-                children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: esProfesor
-                          ? AppColors.accentCrimson
-                          : AppColors.secondaryBlue,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(
-                      item.icono,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkBackground : Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      item.etiquetaModulo,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: isDark
-                            ? AppColors.footerAccentBlue
-                            : AppColors.primaryNavy,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                item.titulo,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  item.icono,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                item.descripcion,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: secondaryTextColor,
-                  height: 1.3,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBackground : Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  item.etiquetaModulo,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppColors.footerAccentBlue
+                        : AppColors.primaryNavy,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          Text(
+            item.titulo,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.descripcion,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: secondaryTextColor,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }
