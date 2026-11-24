@@ -5,13 +5,24 @@ class AppConstants {
 
   static const String appName = 'E-SIIMA UAA';
   static const String appSubtitle =
-      'Sistema Institucional de Gestion Academica Distribuida';
+      'Portal Institucional y Aula Virtual Universitaria';
   static const String institutionName =
       'Universidad Autonoma de Aguascalientes';
   static const String apiBaseUrl = 'http://localhost:8000/api/v1';
   static const String appVersion = '1.0.0';
 
-  // Rutas de recursos graficos institucionales
-  static const String logoUaaAsset = 'assets/images/logo_uaa.png';
+  // Rutas de recursos graficos institucionales con fondo transparente
+  static const String logoUaaLightAsset = 'assets/images/logo_uaa.png';
+  static const String logoUaaDarkAsset = 'assets/images/logo_uaa_dark.png';
   static const String faviconUaaAsset = 'assets/images/favicon_uaa.png';
+
+  // Fotografias oficiales del campus UAA para el carrusel hero principal
+  static const List<String> campusHeroImages = <String>[
+    'assets/images/campus/uaa_banner_1.jpg',
+    'assets/images/campus/uaa_banner_2.jpg',
+    'assets/images/campus/uaa_banner_3.jpg',
+    'assets/images/campus/uaa_banner_4.jpg',
+    'assets/images/campus/uaa_banner_5.jpg',
+    'assets/images/campus/uaa_banner_6.jpg',
+  ];
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
-import 'presentation/screens/home_placeholder_screen.dart';
+import 'presentation/screens/landing_page_screen.dart';
 
 // Punto de entrada principal de la aplicacion Flutter
 void main() {
@@ -26,7 +26,7 @@ class _EsimmaAppState extends State<EsimmaApp> {
     });
   }
 
-  // Construye el MaterialApp con los temas institucionales planos configurados
+  // Construye el MaterialApp con la Landing Page institucional de la UAA
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -35,7 +35,7 @@ class _EsimmaAppState extends State<EsimmaApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: HomePlaceholderScreen(
+      home: LandingPageScreen(
         isDarkMode: _isDarkMode,
         onToggleTheme: _toggleTheme,
       ),

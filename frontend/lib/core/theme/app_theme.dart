@@ -14,7 +14,7 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.lightBackground,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primaryNavy,
-        secondary: AppColors.secondaryGold,
+        secondary: AppColors.secondaryBlue,
         surface: AppColors.lightSurface,
         error: AppColors.statusError,
         onPrimary: Colors.white,
@@ -51,8 +51,8 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.darkBackground,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.slateBlue,
-        secondary: AppColors.secondaryGold,
+        primary: AppColors.secondaryBlue,
+        secondary: AppColors.footerAccentBlue,
         surface: AppColors.darkSurface,
         error: AppColors.statusError,
         onPrimary: Colors.white,
