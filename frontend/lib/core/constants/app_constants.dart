@@ -3,7 +3,9 @@ class AppConstants {
   // Constructor privado para evitar instanciacion
   const AppConstants._();
 
-  static const String appName = 'E-SIIMA UAA';
+  static const String appName = 'UAA | Alumno';
+  static const String appNameAlumno = 'UAA | Alumno';
+  static const String appNameProfesor = 'UAA | Profesor';
   static const String appSubtitle =
       'Portal Institucional y Aula Virtual Universitaria';
   static const String institutionName =
@@ -11,10 +13,16 @@ class AppConstants {
   static const String apiBaseUrl = 'http://localhost:8000/api/v1';
   static const String appVersion = '1.0.0';
 
-  // Rutas de recursos graficos institucionales con fondo transparente
-  static const String logoUaaLightAsset = 'assets/images/logo_uaa.png';
-  static const String logoUaaDarkAsset = 'assets/images/logo_uaa_dark.png';
-  static const String faviconUaaAsset = 'assets/images/favicon_uaa.png';
+  // Rutas de recursos graficos institucionales con fondo transparente en alta calidad
+  static const String logoUaaLightAsset = 'assets/images/logo_uaa(calidad).png';
+  static const String logoUaaDarkAsset = 'assets/images/logo_uaa(calidad).png';
+  static const String faviconUaaAsset = 'assets/images/logo_uaa(calidad).png';
+
+  // Mapas oficiales de alta resolucion de la Direccion General de Infraestructura Universitaria (DGIU)
+  static const String mapaOficialCentralAsset =
+      'assets/images/CAMPUS-CENTRAL-2025.jpg';
+  static const String mapaOficialSurAsset =
+      'assets/images/CAMPUS-SUR-2023.jpg';
 
   // Fotografias oficiales del campus UAA para el carrusel hero principal
   static const List<String> campusHeroImages = <String>[

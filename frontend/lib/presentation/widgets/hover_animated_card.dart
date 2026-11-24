@@ -72,9 +72,7 @@ class _HoverAnimatedCardState extends State<HoverAnimatedCard> {
           offset: isActive ? const Offset(0, -0.012) : Offset.zero,
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
+          child: Container(
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: defaultBg,

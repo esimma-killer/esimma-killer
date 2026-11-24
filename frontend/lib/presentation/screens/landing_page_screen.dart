@@ -20,12 +20,14 @@ import '../widgets/university_activities_section.dart';
 class LandingPageScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
+  final ValueChanged<bool>? onRoleChanged;
   final PortalRepository repository;
 
   const LandingPageScreen({
     super.key,
     required this.isDarkMode,
     required this.onToggleTheme,
+    this.onRoleChanged,
     this.repository = const PortalRepository(),
   });
 
@@ -46,6 +48,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   // Controlador de scroll para volver arriba al cambiar de ventana
   final ScrollController _scrollController = ScrollController();
 
+  // Bandera para precargar los recursos visuales en memoria una sola vez
+  bool _recursosPrecargados = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,17 +60,39 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_recursosPrecargados) {
+      _recursosPrecargados = true;
+      precacheImage(const AssetImage(AppConstants.logoUaaLightAsset), context);
+      precacheImage(const AssetImage(AppConstants.logoUaaDarkAsset), context);
+      precacheImage(const AssetImage(AppConstants.faviconUaaAsset), context);
+      precacheImage(
+        const AssetImage(AppConstants.mapaOficialCentralAsset),
+        context,
+      );
+      precacheImage(
+        const AssetImage(AppConstants.mapaOficialSurAsset),
+        context,
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Cambia la sesion simulada y detecta automaticamente su campus principal
+  // Cambia la sesion simulada, detecta su campus principal y actualiza el titulo de la pestana
   void _cambiarSesionDetectada(SesionUsuarioUaa nuevaSesion) {
     setState(() {
       _sesionActiva = nuevaSesion;
       _idCampusSeleccionado = nuevaSesion.idCampusOrigen;
     });
+    if (widget.onRoleChanged != null) {
+      widget.onRoleChanged!(nuevaSesion.esProfesor);
+    }
   }
 
   // Permite al alumno o profesor alternar entre Campus Central y Campus Sur
@@ -905,17 +932,17 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Boton menu rapido reutilizable para escritorio y movil
+  // Boton menu rapido ordenado por prioridad: Entrega de Tareas, Mapa, Transporte, Servicios y Horarios, y el resto
   Widget _buildQuickMenuButton(bool isMobile) {
     return PopupMenuButton<String>(
       tooltip: 'Menu Rapido',
       onSelected: (String value) {
         if (value == 'MAPA') {
           _navegarASeccion(SeccionPortalUaa.mapaUniversitario);
-        } else if (value == 'SERVICIOS') {
-          _navegarASeccion(SeccionPortalUaa.serviciosHorarios);
         } else if (value == 'TRANSPORTE') {
           _navegarASeccion(SeccionPortalUaa.transporteUniversitario);
+        } else if (value == 'SERVICIOS') {
+          _navegarASeccion(SeccionPortalUaa.serviciosHorarios);
         } else if (value == 'CREDITOS') {
           _navegarASeccion(SeccionPortalUaa.actividadesCreditos);
         } else if (value == 'CALENDARIO') {
@@ -926,28 +953,29 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
       },
       itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
         PopupMenuItem<String>(
+          value: 'Entrega de Tareas (Aula Virtual)',
+          child: Text('Entrega de Tareas'),
+        ),
+        PopupMenuItem<String>(
+          value: 'MAPA',
+          child: Text('Mapa Universitario'),
+        ),
+        PopupMenuItem<String>(
+          value: 'TRANSPORTE',
+          child: Text('Transporte'),
+        ),
+        PopupMenuItem<String>(
+          value: 'SERVICIOS',
+          child: Text('Servicios y Horarios'),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem<String>(
           value: 'Inscripcion de Materias',
           child: Text('Inscripcion de Materias (E-SIIMA)'),
         ),
         PopupMenuItem<String>(
-          value: 'Entrega de Tareas (Aula Virtual)',
-          child: Text('Entrega de Tareas (Aula Virtual)'),
-        ),
-        PopupMenuItem<String>(
-          value: 'MAPA',
-          child: Text('Abrir Mapa Universitario Grande'),
-        ),
-        PopupMenuItem<String>(
-          value: 'SERVICIOS',
-          child: Text('Servicios y Horarios de Atencion'),
-        ),
-        PopupMenuItem<String>(
-          value: 'TRANSPORTE',
-          child: Text('Transporte Universitario Gallos'),
-        ),
-        PopupMenuItem<String>(
           value: 'CREDITOS',
-          child: Text('Eventos de Creditos Humanisticos'),
+          child: Text('Actividades y Creditos Humanisticos'),
         ),
         PopupMenuItem<String>(
           value: 'CALENDARIO',
@@ -986,7 +1014,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Boton circular para alternar entre modo claro y oscuro
+  // Boton circular para alternar de forma instantanea entre modo claro y oscuro
   Widget _buildThemeToggleButton(bool isDark) {
     return IconButton(
       tooltip:
@@ -1007,7 +1035,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Header compacto fijo: en celular agrupa E-SIIMA abajo junto a AULA, MENU y Tema, y recorre Sesion a la derecha
+  // Header compacto fijo con cambio instantaneo de color entre modo claro y oscuro
   Widget _buildBrandHeaderBar(
     BuildContext context, {
     required bool isPcOrLaptop,
@@ -1032,14 +1060,26 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          // Esquina izquierda: Menu hamburguesa (en Tablet y Celular) + Emblema y Nombre UAA
+          // Esquina izquierda: Menu hamburguesa animado (en Tablet y Celular) + Emblema y Nombre UAA
           Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               if (!isPcOrLaptop)
                 Builder(
                   builder: (BuildContext ctx) => IconButton(
-                    icon: const Icon(Icons.menu),
+                    icon: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.85, end: 1.0),
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutBack,
+                      builder: (
+                        BuildContext context,
+                        double scale,
+                        Widget? child,
+                      ) {
+                        return Transform.scale(scale: scale, child: child);
+                      },
+                      child: const Icon(Icons.menu),
+                    ),
                     tooltip: 'Abrir menu de secciones',
                     onPressed: () => Scaffold.of(ctx).openDrawer(),
                   ),
@@ -1053,6 +1093,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                       AppConstants.faviconUaaAsset,
                       height: isMobile ? 34 : 44,
                       fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
                     ),
                     const SizedBox(width: 8),
                     Column(
@@ -1294,104 +1335,159 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Menu hamburguesa para Tablet y Celular con pestanas separadas para Servicios y Transporte
+  // Menu hamburguesa para Tablet y Celular con animacion de entrada escalonada en sus opciones
   Widget _buildHamburgerDrawer(bool isDark) {
+    final List<Map<String, Object>> opcionesMenu = <Map<String, Object>>[
+      <String, Object>{
+        'icono': Icons.home_outlined,
+        'titulo': 'Inicio (Portal Principal)',
+        'seccion': SeccionPortalUaa.inicio,
+      },
+      <String, Object>{
+        'icono': Icons.map_outlined,
+        'titulo': 'Mapa Universitario Interactivo',
+        'seccion': SeccionPortalUaa.mapaUniversitario,
+      },
+      <String, Object>{
+        'icono': Icons.access_time_outlined,
+        'titulo': 'Servicios y Horarios de Atencion',
+        'seccion': SeccionPortalUaa.serviciosHorarios,
+      },
+      <String, Object>{
+        'icono': Icons.directions_bus_outlined,
+        'titulo': 'Transporte Universitario Gallos',
+        'seccion': SeccionPortalUaa.transporteUniversitario,
+      },
+      <String, Object>{
+        'icono': Icons.workspace_premium_outlined,
+        'titulo': 'Actividades y Creditos Humanisticos',
+        'seccion': SeccionPortalUaa.actividadesCreditos,
+      },
+      <String, Object>{
+        'icono': Icons.calendar_month_outlined,
+        'titulo': 'Calendario, Centros y Tramites FAQ',
+        'seccion': SeccionPortalUaa.calendarioDirectorio,
+      },
+    ];
+
     return Drawer(
       child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(20),
-              color: AppColors.primaryNavy,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text(
-                    AppConstants.appName,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Sesion: ${_sesionActiva.descripcionSesion}',
-                    style: const TextStyle(
-                      color: AppColors.footerAccentBlue,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          builder: (BuildContext context, double progress, Widget? child) {
+            return Opacity(
+              opacity: progress,
+              child: Transform.translate(
+                offset: Offset(-18 * (1 - progress), 0),
+                child: child,
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.search),
-              title: const Text('Buscar Edificio o Tramite'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _abrirBuscadorInstitucional();
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.home_outlined),
-              title: const Text('Inicio (Portal Principal)'),
-              selected: _seccionActiva == SeccionPortalUaa.inicio,
-              onTap: () {
-                Navigator.of(context).pop();
-                _navegarASeccion(SeccionPortalUaa.inicio);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.map_outlined),
-              title: const Text('Mapa Universitario Interactivo'),
-              selected: _seccionActiva == SeccionPortalUaa.mapaUniversitario,
-              onTap: () {
-                Navigator.of(context).pop();
-                _navegarASeccion(SeccionPortalUaa.mapaUniversitario);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.access_time_outlined),
-              title: const Text('Servicios y Horarios de Atencion'),
-              selected: _seccionActiva == SeccionPortalUaa.serviciosHorarios,
-              onTap: () {
-                Navigator.of(context).pop();
-                _navegarASeccion(SeccionPortalUaa.serviciosHorarios);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.directions_bus_outlined),
-              title: const Text('Transporte Universitario Gallos'),
-              selected:
-                  _seccionActiva == SeccionPortalUaa.transporteUniversitario,
-              onTap: () {
-                Navigator.of(context).pop();
-                _navegarASeccion(SeccionPortalUaa.transporteUniversitario);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.workspace_premium_outlined),
-              title: const Text('Actividades y Creditos Humanisticos'),
-              selected: _seccionActiva == SeccionPortalUaa.actividadesCreditos,
-              onTap: () {
-                Navigator.of(context).pop();
-                _navegarASeccion(SeccionPortalUaa.actividadesCreditos);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_month_outlined),
-              title: const Text('Calendario, Centros y Tramites FAQ'),
-              selected: _seccionActiva == SeccionPortalUaa.calendarioDirectorio,
-              onTap: () {
-                Navigator.of(context).pop();
-                _navegarASeccion(SeccionPortalUaa.calendarioDirectorio);
-              },
-            ),
-          ],
+            );
+          },
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+                color: AppColors.primaryNavy,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            _sesionActiva.esProfesor
+                                ? AppConstants.appNameProfesor
+                                : AppConstants.appNameAlumno,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sesion: ${_sesionActiva.descripcionSesion}',
+                            style: const TextStyle(
+                              color: AppColors.footerAccentBlue,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Cerrar menu',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.search),
+                title: const Text('Buscar Edificio o Tramite'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _abrirBuscadorInstitucional();
+                },
+              ),
+              const Divider(),
+              ...opcionesMenu.map((Map<String, Object> item) {
+                final SeccionPortalUaa sec =
+                    item['seccion']! as SeccionPortalUaa;
+                final bool activa = _seccionActiva == sec;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: activa
+                          ? (isDark
+                              ? AppColors.darkSurfaceMuted
+                              : const Color(0xFFE3ECF8))
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: ListTile(
+                      leading: Icon(
+                        item['icono']! as IconData,
+                        color: activa
+                            ? (isDark
+                                ? AppColors.footerAccentBlue
+                                : AppColors.primaryNavy)
+                            : null,
+                      ),
+                      title: Text(
+                        item['titulo']! as String,
+                        style: TextStyle(
+                          fontWeight:
+                              activa ? FontWeight.w800 : FontWeight.w500,
+                        ),
+                      ),
+                      selected: activa,
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _navegarASeccion(sec);
+                      },
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
@@ -1737,6 +1833,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                         height: 38,
                         width: 38,
                         fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
                       ),
                       const SizedBox(width: 12),
                       const Column(
