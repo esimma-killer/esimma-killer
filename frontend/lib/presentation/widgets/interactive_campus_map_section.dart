@@ -659,7 +659,7 @@ class _InteractiveCampusMapSectionState
                     ),
                   ),
 
-                // 4. BOTON CUADRADO INFERIOR IZQUIERDO "CAPAS"
+                // 4. BOTON CUADRADO INFERIOR IZQUIERDO DE CAMBIO DE VISTA (ORIGINAL / INTERACTIVO)
                 Positioned(
                   bottom: 22,
                   left: 14,
@@ -689,7 +689,7 @@ class _InteractiveCampusMapSectionState
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           Text(
-                            'Datos del plano oficial DGIU UAA 2026 • ${_idCampusMapa == 1 ? 'Campus Central (153 edificios)' : 'Campus Sur (19 edificios)'} • 50 m ',
+                            'Datos del plano oficial DGIU UAA 2026 • ${_idCampusMapa == 1 ? 'Campus Central (154 edificios)' : 'Campus Sur (19 edificios)'} • 50 m ',
                             style: TextStyle(
                               fontSize: 10,
                               color: isDark
@@ -1510,14 +1510,16 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Boton cuadrado inferior izquierdo "Capas" identico a las 3 capturas de referencia de Google Maps
+  // Boton cuadrado inferior izquierdo para alternar entre vista Interactiva (por defecto) y Mapa Original
   Widget _buildGoogleMapsCapasSquareButton(bool isDark) {
     final Color borderCol = isDark ? AppColors.darkBorder : Colors.white;
+    final String etiquetaBoton =
+        _modoVectorialEstilizado ? 'Original' : 'Interactivo';
 
     return Tooltip(
       message: _modoVectorialEstilizado
-          ? 'Cambiar a Plano Oficial DGIU'
-          : 'Cambiar a Mapa Vectorial 1:1',
+          ? 'Cambiar a mapa original'
+          : 'Cambiar a mapa interactivo',
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () {
@@ -1526,8 +1528,8 @@ class _InteractiveCampusMapSectionState
           });
         },
         child: Container(
-          width: 66,
-          height: 66,
+          width: 68,
+          height: 68,
           decoration: BoxDecoration(
             color: _modoVectorialEstilizado
                 ? const Color(0xFF435426)
@@ -1553,17 +1555,17 @@ class _InteractiveCampusMapSectionState
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 3),
-                  color: Colors.black.withValues(alpha: 0.68),
-                  child: const Row(
+                  color: Colors.black.withValues(alpha: 0.72),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Icon(Icons.layers, color: Colors.white, size: 12),
-                      SizedBox(width: 3),
+                      const Icon(Icons.layers, color: Colors.white, size: 11),
+                      const SizedBox(width: 3),
                       Text(
-                        'Capas',
-                        style: TextStyle(
+                        etiquetaBoton,
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10.5,
+                          fontSize: 9.8,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -2214,6 +2216,198 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     canvas.restore();
   }
 
+  // Dibuja los 2 puentes subterraneos oficiales (208 y 22) y el sendero peatonal hacia la Unidad Deportiva
+  void _dibujarTunelesSubterraneosYCaminoDeportiva(
+    Canvas canvas,
+    double escala,
+  ) {
+    final Color walkwayCol =
+        isDark ? const Color(0xFF6B7485) : const Color(0xFFBCBEC4);
+    final Color portalWallCol =
+        isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B);
+    final Color tunnelFillCol =
+        isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8);
+
+    // 1. Sendero peatonal desde la salida norte del Tunel 208 hasta la explanada de la Unidad Deportiva
+    final List<Offset> ptsSenderoDeportiva = <Offset>[
+      Offset(offsetX + 0.4158 * imgW, offsetY + 0.436 * imgH),
+      Offset(offsetX + 0.5580 * imgW, offsetY + 0.435 * imgH),
+      Offset(offsetX + 0.5850 * imgW, offsetY + 0.424 * imgH),
+      Offset(offsetX + 0.6180 * imgW, offsetY + 0.435 * imgH),
+      Offset(offsetX + 0.6580 * imgW, offsetY + 0.434 * imgH),
+    ];
+
+    final Path senderoPath = Path()
+      ..moveTo(ptsSenderoDeportiva.first.dx, ptsSenderoDeportiva.first.dy);
+    for (int i = 1; i < ptsSenderoDeportiva.length; i++) {
+      senderoPath.lineTo(ptsSenderoDeportiva[i].dx, ptsSenderoDeportiva[i].dy);
+    }
+
+    // Base gris del sendero peatonal hacia Unidad Deportiva
+    canvas.drawPath(
+      senderoPath,
+      Paint()
+        ..color = walkwayCol
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.6 * escala
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..isAntiAlias = true,
+    );
+
+    // Rampa oriente que conecta la salida del Tunel 22 (0.858, 0.686) con el andador del Edificio 110 (0.868, 0.695)
+    canvas.drawLine(
+      Offset(offsetX + 0.858 * imgW, offsetY + 0.686 * imgH),
+      Offset(offsetX + 0.868 * imgW, offsetY + 0.695 * imgH),
+      Paint()
+        ..color = walkwayCol
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5.2 * escala
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true,
+    );
+
+    // 2. Funcion auxiliar para dibujar un Tunel Subterraneo con muros de portal, guia punteada y etiqueta
+    void dibujarTunel({
+      required Offset p1,
+      required Offset p2,
+      required String etiqueta,
+      required Offset labelOffset,
+    }) {
+      final double dx = p2.dx - p1.dx;
+      final double dy = p2.dy - p1.dy;
+      final double len = math.sqrt(dx * dx + dy * dy);
+      if (len <= 1e-3) {
+        return;
+      }
+      final double ux = dx / len;
+      final double uy = dy / len;
+      final double nx = -uy;
+      final double ny = ux;
+      final double halfW = 3.2 * escala;
+      final double wingLen = 2.6 * escala;
+
+      // Relleno interior sombreado del paso subterraneo
+      final Path fillTunnel = Path()
+        ..moveTo(p1.dx + nx * halfW, p1.dy + ny * halfW)
+        ..lineTo(p2.dx + nx * halfW, p2.dy + ny * halfW)
+        ..lineTo(p2.dx - nx * halfW, p2.dy - ny * halfW)
+        ..lineTo(p1.dx - nx * halfW, p1.dy - ny * halfW)
+        ..close();
+      canvas.drawPath(
+        fillTunnel,
+        Paint()
+          ..color = tunnelFillCol.withValues(alpha: 0.78)
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = true,
+      );
+
+      // Muros laterales del tunel con aletas de boca de entrada/salida
+      final Paint wallPaint = Paint()
+        ..color = portalWallCol
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.45 * escala
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..isAntiAlias = true;
+
+      for (final double side in <double>[-1.0, 1.0]) {
+        final Offset w1 =
+            Offset(p1.dx + nx * halfW * side, p1.dy + ny * halfW * side);
+        final Offset w2 =
+            Offset(p2.dx + nx * halfW * side, p2.dy + ny * halfW * side);
+        final Offset f1 = Offset(
+          w1.dx + (-ux + nx * side * 0.85) * wingLen,
+          w1.dy + (-uy + ny * side * 0.85) * wingLen,
+        );
+        final Offset f2 = Offset(
+          w2.dx + (ux + nx * side * 0.85) * wingLen,
+          w2.dy + (uy + ny * side * 0.85) * wingLen,
+        );
+        final Path wallPath = Path()
+          ..moveTo(f1.dx, f1.dy)
+          ..lineTo(w1.dx, w1.dy)
+          ..lineTo(w2.dx, w2.dy)
+          ..lineTo(f2.dx, f2.dy);
+        canvas.drawPath(wallPath, wallPaint);
+      }
+
+      // Linea punteada central blanca que simboliza paso subterraneo
+      final Paint dashPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.25 * escala
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true;
+      final double dashStep = 4.2 * escala;
+      for (double d = 2.0 * escala; d < len - 2.0 * escala; d += dashStep) {
+        final double dEnd = math.min(d + 2.1 * escala, len - 1.5 * escala);
+        canvas.drawLine(
+          Offset(p1.dx + ux * d, p1.dy + uy * d),
+          Offset(p1.dx + ux * dEnd, p1.dy + uy * dEnd),
+          dashPaint,
+        );
+      }
+
+      // Etiqueta institucional compacta del Tunel Subterraneo
+      final TextPainter tp = TextPainter(
+        text: TextSpan(
+          text: etiqueta,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 6.2 * escala,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.3,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final RRect badgeRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: labelOffset,
+          width: tp.width + 7.5 * escala,
+          height: tp.height + 3.2 * escala,
+        ),
+        Radius.circular(3.0 * escala),
+      );
+      canvas.drawRRect(
+        badgeRect,
+        Paint()..color = const Color(0xFF0F2942).withValues(alpha: 0.92),
+      );
+      canvas.drawRRect(
+        badgeRect,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8 * escala,
+      );
+      tp.paint(
+        canvas,
+        Offset(
+          labelOffset.dx - tp.width / 2.0,
+          labelOffset.dy - tp.height / 2.0,
+        ),
+      );
+    }
+
+    // Tunel Subterraneo 1: Junto al Edificio 208 hacia la Unidad Deportiva
+    dibujarTunel(
+      p1: Offset(offsetX + 0.4158 * imgW, offsetY + 0.480 * imgH),
+      p2: Offset(offsetX + 0.4158 * imgW, offsetY + 0.436 * imgH),
+      etiqueta: 'TUNEL SUBTERRANEO',
+      labelOffset: Offset(offsetX + 0.456 * imgW, offsetY + 0.458 * imgH),
+    );
+
+    // Tunel Subterraneo 2: Junto al Edificio 22 hacia el Edificio 110 (Av. Aguascalientes Norte)
+    dibujarTunel(
+      p1: Offset(offsetX + 0.775 * imgW, offsetY + 0.684 * imgH),
+      p2: Offset(offsetX + 0.858 * imgW, offsetY + 0.686 * imgH),
+      etiqueta: 'TUNEL SUBTERRANEO',
+      labelOffset: Offset(offsetX + 0.816 * imgW, offsetY + 0.672 * imgH),
+    );
+  }
+
   // Dibuja los detalles arquitectonicos finos del Estadio Universitario, las 7 Canchas junto a la Bandera y Flecha de Norte
   void _dibujarDetallesEstadioYCanchas(
     Canvas canvas,
@@ -2229,17 +2423,17 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       ..isAntiAlias = true;
 
     if (!esSur) {
-      // 1. Lineas blancas dentro de la cancha del Estadio Universitario (0.640, 0.364)
+      // 1. Lineas blancas centradas exactamente dentro del rectangulo verde del Estadio Universitario (0.7172, 0.3670)
       _dibujarTrazoCanchaFutbol(
         canvas,
-        cxNorm: 0.640,
-        cyNorm: 0.364,
-        wNorm: 0.088,
+        cxNorm: 0.7172,
+        cyNorm: 0.3670,
+        wNorm: 0.083,
         hNorm: 0.052,
-        anguloGrados: 24.0,
+        anguloGrados: 26.6,
         ejeHorizontal: true,
         paint: Paint()
-          ..color = const Color(0xFFD6DAE2)
+          ..color = Colors.white.withValues(alpha: 0.78)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0 * escala
           ..isAntiAlias = true,
@@ -2328,6 +2522,9 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         6.5 * escala,
         Paint()..color = const Color(0xFF64748B),
       );
+
+      // 4. Los 2 Puentes Subterraneos (208 y 22) y el sendero de acceso a la Unidad Deportiva
+      _dibujarTunelesSubterraneosYCaminoDeportiva(canvas, escala);
     } else {
       // Detalles especificos de Campus Sur:
       // 1. Cancha de futbol en el area verde central (entre Edificio 16/17 y Edificio 10)

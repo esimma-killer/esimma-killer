@@ -53,6 +53,26 @@ void main() {
       expect(ruta38.puntosTrayecto.last.id, 'CEN-B-38');
       expect(ruta43.puntosTrayecto.last.id, 'CEN-B-43');
 
+      // Verifica que las rutas hacia edificios 300 y 400 crucen por el Tunel 208 y rodeen por la Unidad Deportiva
+      final RutaPeatonalUaa ruta401 = repo.calcularRutaPeatonal(
+        idCampus: 1,
+        idNodoOrigen: 'CEN-B-ACCESO_SUR',
+        idNodoDestino: 'CEN-B-401',
+      );
+      final List<String> ids401 =
+          ruta401.puntosTrayecto.map((NodoPasilloUaa n) => n.id).toList();
+      expect(ids401, containsAll(<String>['CEN-W-268', 'CEN-W-269', 'CEN-W-270', 'CEN-W-136', 'CEN-W-142']));
+
+      // Verifica que las rutas al oriente de Av. Aguascalientes Norte crucen por el Tunel 22 (CEN-W-273 -> CEN-W-274)
+      final RutaPeatonalUaa ruta101 = repo.calcularRutaPeatonal(
+        idCampus: 1,
+        idNodoOrigen: 'CEN-B-ACCESO_SUR',
+        idNodoDestino: 'CEN-B-101',
+      );
+      final List<String> ids101 =
+          ruta101.puntosTrayecto.map((NodoPasilloUaa n) => n.id).toList();
+      expect(ids101, containsAll(<String>['CEN-W-273', 'CEN-W-274', 'CEN-W-275']));
+
       // Ruta en Campus Sur: Acceso Sur -> Taller 17 (Ingenieria Automotriz)
       final RutaPeatonalUaa rutaSur = repo.calcularRutaPeatonal(
         idCampus: 2,
