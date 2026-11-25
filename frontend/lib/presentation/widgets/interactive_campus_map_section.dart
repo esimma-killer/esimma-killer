@@ -7,7 +7,7 @@ import '../../data/repositories/campus_vector_layers.dart';
 import '../../data/repositories/portal_repository.dart';
 import '../../domain/entities/portal_models.dart';
 
-// Navegador interactivo a pantalla completa con estructura estilo Google Maps (PC, Tablet y Celular)
+// Navegador interactivo a pantalla completa con estructura estilo Google Maps y vectorizacion 1:1 completa
 class InteractiveCampusMapSection extends StatefulWidget {
   final PortalRepository repository;
   final int initialCampusId;
@@ -38,7 +38,6 @@ class _InteractiveCampusMapSectionState
   bool _modoVectorialEstilizado = true;
   bool _zoomInicialAplicado = false;
 
-  // Historial reciente de edificios consultados en la sesion actual
   final List<String> _historialRecientesIds = <String>[
     'CEN-B-202',
     'CEN-B-65',
@@ -99,19 +98,19 @@ class _InteractiveCampusMapSectionState
       _searchController.clear();
       _zoomInicialAplicado = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _aplicarEncuadreInicialAmplio();
+        _aplicarEncuadreInicialConZoom();
       });
     }
   }
 
-  // Aplica un encuadre inicial amplio para que el mapa domine toda la pantalla sin margenes vacios
-  void _aplicarEncuadreInicialAmplio() {
+  // Aplica un zoom inicial cercano para que el mapa rebase la pantalla y el usuario navegue arrastrandolo
+  void _aplicarEncuadreInicialConZoom() {
     if (!mounted || _tamanoVisor.width <= 0 || _tamanoVisor.height <= 0) {
       return;
     }
-    final double scale = _idCampusMapa == 1 ? 1.42 : 1.22;
-    final double targetX = _idCampusMapa == 1 ? 0.56 : 0.62;
-    final double targetY = _idCampusMapa == 1 ? 0.66 : 0.44;
+    final double scale = _idCampusMapa == 1 ? 2.15 : 1.78;
+    final double targetX = _idCampusMapa == 1 ? 0.54 : 0.64;
+    final double targetY = _idCampusMapa == 1 ? 0.70 : 0.42;
 
     final double centerPx = _ultimoOffsetX + targetX * _ultimoImgW;
     final double centerPy = _ultimoOffsetY + targetY * _ultimoImgH;
@@ -136,7 +135,7 @@ class _InteractiveCampusMapSectionState
       _zoomInicialAplicado = false;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _aplicarEncuadreInicialAmplio();
+      _aplicarEncuadreInicialConZoom();
     });
   }
 
@@ -173,7 +172,7 @@ class _InteractiveCampusMapSectionState
       _idNodoOrigen =
           _idCampusMapa == 1 ? 'CEN-B-ACCESO_SUR' : 'SUR-B-ACCESO_SUR';
     });
-    _aplicarEncuadreInicialAmplio();
+    _aplicarEncuadreInicialConZoom();
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -215,7 +214,7 @@ class _InteractiveCampusMapSectionState
   void _aplicarFactorZoom(double factor) {
     final Matrix4 current = _zoomController.value.clone();
     final double currentScale = current.getMaxScaleOnAxis();
-    final double nextScale = (currentScale * factor).clamp(0.85, 5.5);
+    final double nextScale = (currentScale * factor).clamp(0.85, 6.0);
     final double effectiveFactor = nextScale / currentScale;
 
     final double cx = _tamanoVisor.width > 0 ? _tamanoVisor.width / 2.0 : 400.0;
@@ -258,7 +257,7 @@ class _InteractiveCampusMapSectionState
 
     final double scaleX = _tamanoVisor.width / spanW;
     final double scaleY = _tamanoVisor.height / spanH;
-    final double targetScale = math.min(scaleX, scaleY).clamp(1.30, 2.85);
+    final double targetScale = math.min(scaleX, scaleY).clamp(1.65, 3.25);
 
     final double tx = (_tamanoVisor.width / 2.0) - centerPx * targetScale;
     final double ty = (_tamanoVisor.height / 2.0) - centerPy * targetScale;
@@ -274,7 +273,7 @@ class _InteractiveCampusMapSectionState
     return codigo.toUpperCase().replaceFirst('EDIF ', '').trim();
   }
 
-  // Evalua si un edificio pertenece a una de las categorias rapidas de la barra superior tipo Google Maps
+  // Evalua si un edificio pertenece a una de las categorias rapidas de la barra superior
   bool _cumpleCategoriaRapida(EdificioMapaUaa e, String cat) {
     if (cat.isEmpty) {
       return true;
@@ -577,16 +576,16 @@ class _InteractiveCampusMapSectionState
         Expanded(
           child: Container(
             color: _modoVectorialEstilizado
-                ? (isDark ? const Color(0xFF131D2B) : const Color(0xFFE9EEF5))
+                ? (isDark ? const Color(0xFF131D2B) : const Color(0xFFF7F9FC))
                 : Colors.white,
             child: Stack(
               fit: StackFit.expand,
               children: <Widget>[
-                // 1. LIENZO DEL MAPA A PANTALLA COMPLETA (Protagonista de la interfaz)
+                // 1. LIENZO DEL MAPA A PANTALLA COMPLETA CON ZOOM INICIAL CERCANO
                 InteractiveViewer(
                   transformationController: _zoomController,
                   minScale: 0.85,
-                  maxScale: 5.5,
+                  maxScale: 6.0,
                   panEnabled: true,
                   scaleEnabled: true,
                   child: _buildFullscreenVectorMapCanvas(
@@ -599,7 +598,7 @@ class _InteractiveCampusMapSectionState
                   ),
                 ),
 
-                // 2. BARRA SUPERIOR FLOTANTE ESTILO GOOGLE MAPS (Pildora de Busqueda + Chips de Categorias)
+                // 2. BARRA SUPERIOR FLOTANTE ESTILO GOOGLE MAPS (Pildora de Busqueda + Tiempo de Ruta + Chips)
                 Positioned(
                   top: 12,
                   left: 14,
@@ -660,37 +659,21 @@ class _InteractiveCampusMapSectionState
                     ),
                   ),
 
-                // 4. BOTON CUADRADO INFERIOR IZQUIERDO "CAPAS" (Identico a Google Maps en PC, Tablet y Movil)
+                // 4. BOTON CUADRADO INFERIOR IZQUIERDO "CAPAS"
                 Positioned(
                   bottom: 22,
                   left: 14,
                   child: _buildGoogleMapsCapasSquareButton(isDark),
                 ),
 
-                // 5. PILDORA COMPACTA INFERIOR CENTRAL DE RUTA ACTIVA (No estorba la vista del mapa)
-                Positioned(
-                  bottom: 22,
-                  left: isMobile ? 86 : 94,
-                  right: 68,
-                  child: Align(
-                    alignment:
-                        isMobile ? Alignment.bottomLeft : Alignment.bottomCenter,
-                    child: _buildCompactRouteBottomPill(
-                      isDark: isDark,
-                      isMobile: isMobile,
-                      rutaActiva: rutaActiva,
-                    ),
-                  ),
-                ),
-
-                // 6. CONTROLES INFERIORES DERECHOS: CIRCULO MI UBICACION + PILDORA VERTICAL (+ / -)
+                // 5. CONTROLES INFERIORES DERECHOS: CIRCULO MI UBICACION + PILDORA VERTICAL (+ / -)
                 Positioned(
                   bottom: 22,
                   right: 14,
                   child: _buildGoogleMapsRightControls(isDark, rutaActiva),
                 ),
 
-                // 7. BARRA INFERIOR DERECHA DE DATOS DEL MAPA Y ESCALA (Como el pie de 14px de Google Maps)
+                // 6. BARRA INFERIOR DERECHA DE DATOS DEL MAPA Y ESCALA
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -720,13 +703,16 @@ class _InteractiveCampusMapSectionState
                             decoration: BoxDecoration(
                               border: Border(
                                 left: BorderSide(
-                                  color: isDark ? Colors.white70 : Colors.black87,
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87,
                                 ),
                                 right: BorderSide(
-                                  color: isDark ? Colors.white70 : Colors.black87,
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87,
                                 ),
                                 bottom: BorderSide(
-                                  color: isDark ? Colors.white70 : Colors.black87,
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87,
                                   width: 1.5,
                                 ),
                               ),
@@ -810,7 +796,6 @@ class _InteractiveCampusMapSectionState
             ),
           ),
           const SizedBox(height: 16),
-          // Boton miniatura para alternar entre Campus Central y Campus Sur
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () => _cambiarCampusMapa(_idCampusMapa == 1 ? 2 : 1),
@@ -859,7 +844,7 @@ class _InteractiveCampusMapSectionState
             etiqueta: 'Encuadrar',
             activo: false,
             isDark: isDark,
-            onTap: _aplicarEncuadreInicialAmplio,
+            onTap: _aplicarEncuadreInicialConZoom,
           ),
         ],
       ),
@@ -895,7 +880,8 @@ class _InteractiveCampusMapSectionState
                     ? activeCol.withValues(alpha: 0.16)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
-                border: activo ? Border.all(color: activeCol, width: 1.4) : null,
+                border:
+                    activo ? Border.all(color: activeCol, width: 1.4) : null,
               ),
               child: Icon(
                 icono,
@@ -919,9 +905,7 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Encabezado flotante superior estilo Google Maps:
-  // En PC y Tablet: Pildora de busqueda a la izquierda y Chips de categorias a la derecha en la misma fila.
-  // En Celular: Pildora de busqueda arriba (ancho completo) y Chips de categorias justo debajo.
+  // Encabezado flotante superior estilo Google Maps con insignia de tiempo de recorrido arriba
   Widget _buildTopGoogleMapsFloatingHeader({
     required ThemeData theme,
     required bool isDark,
@@ -942,6 +926,7 @@ class _InteractiveCampusMapSectionState
     final Widget categoryChipsRow = _buildGoogleMapsCategoryChipsBar(
       isDark: isDark,
       todosEdificios: todosEdificios,
+      rutaActiva: rutaActiva,
     );
 
     if (isMobile) {
@@ -993,7 +978,6 @@ class _InteractiveCampusMapSectionState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        // Pildora principal "Buscar en Mapa UAA"
         Container(
           height: 46,
           decoration: BoxDecoration(
@@ -1108,7 +1092,6 @@ class _InteractiveCampusMapSectionState
                 color: borderCol,
                 margin: const EdgeInsets.symmetric(horizontal: 4),
               ),
-              // Icono de Rombo Azul de Indicaciones ("Como llegar") identico a Google Maps
               Tooltip(
                 message: 'Como llegar / Configurar punto de partida y ruta',
                 child: InkWell(
@@ -1151,7 +1134,6 @@ class _InteractiveCampusMapSectionState
           ),
         ),
 
-        // Desplegable 1: Sugerencias en tiempo real al escribir o filtrar por categoria
         if (_mostrarSugerencias) ...<Widget>[
           const SizedBox(height: 6),
           Container(
@@ -1239,7 +1221,6 @@ class _InteractiveCampusMapSectionState
           ),
         ],
 
-        // Desplegable 2: Panel de Ruta y Paso a Paso (se abre al tocar el rombo azul o "Ver pasos")
         if (_mostrarPanelRutas && !_mostrarSugerencias) ...<Widget>[
           const SizedBox(height: 6),
           _buildCollapsibleRouteDrawerCard(
@@ -1253,12 +1234,19 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Barra horizontal de pildoras de filtro rapido estilo Google Maps ("Restaurantes, Hoteles..." -> Categorias UAA)
+  // Barra horizontal superior: primero muestra la insignia de Tiempo Estimado y luego los chips de categorias
   Widget _buildGoogleMapsCategoryChipsBar({
     required bool isDark,
     required List<EdificioMapaUaa> todosEdificios,
+    required RutaPeatonalUaa rutaActiva,
   }) {
     final List<Map<String, Object>> categorias = <Map<String, Object>>[
+      <String, Object>{
+        'id': 'TIME_BADGE',
+        'label':
+            '${rutaActiva.tiempoMinutos} min a pie (${rutaActiva.distanciaMetros} m) • ${rutaActiva.destino.codigo}',
+        'icon': Icons.directions_walk,
+      },
       <String, Object>{
         'id': 'CAMPUS_SWITCH',
         'label': _idCampusMapa == 1 ? 'Campus Central' : 'Campus Sur',
@@ -1312,20 +1300,29 @@ class _InteractiveCampusMapSectionState
           final String id = cat['id']! as String;
           final String label = cat['label']! as String;
           final IconData icon = cat['icon']! as IconData;
+          final bool esTimeBadge = id == 'TIME_BADGE';
           final bool esSwitchCampus = id == 'CAMPUS_SWITCH';
           final bool activo =
-              esSwitchCampus || (_categoriaFiltroActiva == id);
+              esTimeBadge || esSwitchCampus || (_categoriaFiltroActiva == id);
+
+          final Color bgColor = esTimeBadge
+              ? AppColors.accentCrimson
+              : (activo
+                  ? (esSwitchCampus
+                      ? AppColors.primaryNavy
+                      : AppColors.secondaryBlue)
+                  : chipBg);
 
           return Material(
-            color: activo
-                ? (esSwitchCampus
-                    ? AppColors.primaryNavy
-                    : AppColors.secondaryBlue)
-                : chipBg,
+            color: bgColor,
             borderRadius: BorderRadius.circular(18),
             child: InkWell(
               borderRadius: BorderRadius.circular(18),
               onTap: () {
+                if (esTimeBadge) {
+                  _enfocarRutaEnCamara(rutaActiva);
+                  return;
+                }
                 if (esSwitchCampus) {
                   _cambiarCampusMapa(_idCampusMapa == 1 ? 2 : 1);
                   return;
@@ -1363,7 +1360,7 @@ class _InteractiveCampusMapSectionState
                       esSwitchCampus ? '$label (Cambiar)' : label,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: activo
                             ? Colors.white
                             : (isDark
@@ -1381,7 +1378,7 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Panel desplegable de configuracion de ruta e indicaciones paso a paso (cerrable con X)
+  // Panel desplegable de configuracion de punto de partida y destino (cerrable con X)
   Widget _buildCollapsibleRouteDrawerCard({
     required ThemeData theme,
     required bool isDark,
@@ -1416,7 +1413,7 @@ class _InteractiveCampusMapSectionState
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Ruta Peatonal: ${rutaActiva.tiempoMinutos} min (${rutaActiva.distanciaMetros} m)',
+                    'Tiempo estimado: ${rutaActiva.tiempoMinutos} min (${rutaActiva.distanciaMetros} m)',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -1426,7 +1423,7 @@ class _InteractiveCampusMapSectionState
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                tooltip: 'Cerrar panel de ruta',
+                tooltip: 'Cerrar selector de ruta',
                 onPressed: () {
                   setState(() {
                     _mostrarPanelRutas = false;
@@ -1437,7 +1434,6 @@ class _InteractiveCampusMapSectionState
             ],
           ),
           const SizedBox(height: 8),
-          // Selector de Origen ("Desde donde partes")
           Row(
             children: <Widget>[
               const Icon(
@@ -1488,7 +1484,6 @@ class _InteractiveCampusMapSectionState
             ],
           ),
           const Divider(height: 12),
-          // Destino actual
           Row(
             children: <Widget>[
               const Icon(
@@ -1510,43 +1505,6 @@ class _InteractiveCampusMapSectionState
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 150),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: rutaActiva.indicacionesPasoAPaso.map((String paso) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 5),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(
-                            Icons.subdirectory_arrow_right,
-                            size: 14,
-                            color: AppColors.secondaryBlue,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            paso,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -1554,8 +1512,7 @@ class _InteractiveCampusMapSectionState
 
   // Boton cuadrado inferior izquierdo "Capas" identico a las 3 capturas de referencia de Google Maps
   Widget _buildGoogleMapsCapasSquareButton(bool isDark) {
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : Colors.white;
+    final Color borderCol = isDark ? AppColors.darkBorder : Colors.white;
 
     return Tooltip(
       message: _modoVectorialEstilizado
@@ -1582,7 +1539,6 @@ class _InteractiveCampusMapSectionState
           child: Stack(
             fit: StackFit.expand,
             children: <Widget>[
-              // Miniatura del otro modo de mapa
               Opacity(
                 opacity: 0.72,
                 child: Image.asset(
@@ -1622,89 +1578,6 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Pildora inferior compacta de una sola linea con el resumen de la ruta activa (sin tapar el mapa)
-  Widget _buildCompactRouteBottomPill({
-    required bool isDark,
-    required bool isMobile,
-    required RutaPeatonalUaa rutaActiva,
-  }) {
-    final Color pillBg = isDark ? AppColors.darkSurface : Colors.white;
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : const Color(0xFFDADCE0);
-
-    return Material(
-      color: pillBg,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: () {
-          setState(() {
-            _mostrarPanelRutas = !_mostrarPanelRutas;
-            _mostrarSugerencias = false;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: borderCol, width: 1.2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryBlue,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Icon(
-                      Icons.directions_walk,
-                      color: Colors.white,
-                      size: 13,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      '${rutaActiva.tiempoMinutos} min (${rutaActiva.distanciaMetros} m)',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  isMobile
-                      ? 'Hacia ${rutaActiva.destino.codigo}'
-                      : '${rutaActiva.origen.codigo} -> ${rutaActiva.destino.codigo} (${rutaActiva.destino.nombre})',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.info_outline,
-                size: 16,
-                color: AppColors.secondaryBlue,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // Controles inferiores derechos identicos a Google Maps: Circulo de Mi Ubicacion arriba y Pildora (+ / -) abajo
   Widget _buildGoogleMapsRightControls(
     bool isDark,
@@ -1713,13 +1586,11 @@ class _InteractiveCampusMapSectionState
     final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
     final Color borderCol =
         isDark ? AppColors.darkBorder : const Color(0xFFDADCE0);
-    final Color iconCol =
-        isDark ? Colors.white : const Color(0xFF3C4043);
+    final Color iconCol = isDark ? Colors.white : const Color(0xFF3C4043);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        // Boton circular de Ubicacion Actual / Enfocar Ruta
         Material(
           color: cardBg,
           shape: CircleBorder(side: BorderSide(color: borderCol)),
@@ -1738,7 +1609,6 @@ class _InteractiveCampusMapSectionState
           ),
         ),
         const SizedBox(height: 8),
-        // Pildora vertical compacta con + y -
         Container(
           width: 38,
           decoration: BoxDecoration(
@@ -1813,7 +1683,7 @@ class _InteractiveCampusMapSectionState
         if (!_zoomInicialAplicado && availW > 100 && availH > 100) {
           _zoomInicialAplicado = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _aplicarEncuadreInicialAmplio();
+            _aplicarEncuadreInicialConZoom();
           });
         }
 
@@ -1977,7 +1847,7 @@ class _InteractiveCampusMapSectionState
   }
 }
 
-// Pintor vectorial 1:1 que renderiza el mapa completo con vectores, numeros de edificio y rutas
+// Pintor vectorial 1:1 que renderiza el mapa completo con vectores, bandera de Mexico, banos, guardias, E y rutas
 class _VectorCampusOverlayPainter extends CustomPainter {
   final int idCampus;
   final bool dibujarCapasBaseVectoriales;
@@ -2021,10 +1891,608 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     return path;
   }
 
-  // Dibuja todas las capas vectoriales 1:1 del campus (areas verdes, andadores, agua, edificios y textos)
+  // Dibuja la Bandera Monumental de Mexico (136) ondulando con bordes suaves continuos sobre su glorieta gris
+  void _dibujarBanderaMonumentalMexico(Canvas canvas, double escala) {
+    final double poleX = offsetX + 0.583 * imgW;
+    final double fy = offsetY + 0.319 * imgH;
+    final double fw = 28.5 * escala;
+    final double fh = 16.8 * escala;
+    final double sw = fw / 3.0;
+
+    // 1. Glorieta circular gris completa de la bandera
+    final Offset centroGlorieta = Offset(poleX, offsetY + 0.355 * imgH);
+    canvas.drawCircle(
+      centroGlorieta,
+      14.0 * escala,
+      Paint()
+        ..color = isDark ? const Color(0xFF6B7485) : const Color(0xFFBCBEC4)
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true,
+    );
+
+    // 2. Asta bandera vertical desde el centro de la glorieta hasta el tope de la bandera
+    canvas.drawLine(
+      Offset(poleX, fy - 1.0 * escala),
+      centroGlorieta,
+      Paint()
+        ..color = const Color(0xFF334155)
+        ..strokeWidth = 2.0 * escala
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true,
+    );
+
+    // 3. Contorno unico continuo en curva S suave (cubicTo de extremo a extremo sin escalones)
+    final double c1x = poleX + fw * 0.36;
+    final double c1yTop = fy + 2.4 * escala;
+    final double c2x = poleX + fw * 0.66;
+    final double c2yTop = fy - 2.2 * escala;
+    final double endX = poleX + fw;
+    final double endYTop = fy + 0.6 * escala;
+
+    final Path outerFlagPath = Path()
+      ..moveTo(poleX, fy)
+      ..cubicTo(c1x, c1yTop, c2x, c2yTop, endX, endYTop)
+      ..lineTo(endX, endYTop + fh)
+      ..cubicTo(c2x, c2yTop + fh, c1x, c1yTop + fh, poleX, fy + fh)
+      ..close();
+
+    // Recorta las 3 franjas dentro del contorno suave unico para evitar uniones dentadas
+    canvas.save();
+    canvas.clipPath(outerFlagPath);
+
+    final double topBound = fy - 4.0 * escala;
+    final double botBound = fy + fh + 4.0 * escala;
+
+    // Franja 1: Verde Bandera Oficial (#006847)
+    canvas.drawRect(
+      Rect.fromLTRB(poleX - 1.0, topBound, poleX + sw + 0.5, botBound),
+      Paint()
+        ..color = const Color(0xFF006847)
+        ..isAntiAlias = true,
+    );
+
+    // Franja 2: Blanco (#FFFFFF)
+    canvas.drawRect(
+      Rect.fromLTRB(poleX + sw, topBound, poleX + sw * 2.0 + 0.5, botBound),
+      Paint()
+        ..color = Colors.white
+        ..isAntiAlias = true,
+    );
+
+    // Franja 3: Rojo Bandera Oficial (#CE1126)
+    canvas.drawRect(
+      Rect.fromLTRB(poleX + sw * 2.0, topBound, endX + 1.0, botBound),
+      Paint()
+        ..color = const Color(0xFFCE1126)
+        ..isAntiAlias = true,
+    );
+
+    // Sombras suaves de pliegue para dar volumen natural al ondeo
+    canvas.drawRect(
+      Rect.fromLTRB(
+        poleX + sw * 0.85,
+        topBound,
+        poleX + sw * 1.08,
+        botBound,
+      ),
+      Paint()..color = Colors.black.withValues(alpha: 0.08),
+    );
+    canvas.drawRect(
+      Rect.fromLTRB(
+        poleX + sw * 1.92,
+        topBound,
+        poleX + sw * 2.15,
+        botBound,
+      ),
+      Paint()..color = Colors.black.withValues(alpha: 0.08),
+    );
+
+    // Escudo Nacional al centro de la franja blanca (Aguila y laurel)
+    final Offset eagleCenter =
+        Offset(poleX + sw * 1.50, fy + fh * 0.49);
+    canvas.drawCircle(
+      eagleCenter,
+      2.2 * escala,
+      Paint()
+        ..color = const Color(0xFF6B3E16)
+        ..isAntiAlias = true,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: eagleCenter, radius: 3.0 * escala),
+      0.2,
+      math.pi - 0.4,
+      false,
+      Paint()
+        ..color = const Color(0xFF146B3A)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.95 * escala
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true,
+    );
+
+    canvas.restore();
+
+    // Borde perimetral suavizado con anti-aliasing y esquinas redondeadas
+    canvas.drawPath(
+      outerFlagPath,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.22)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.75 * escala
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true,
+    );
+  }
+
+  // Dibuja la geometria exacta en dos tonos y patio blanco interior del Edificio 1 (Infoteca) como en el original
+  void _dibujarDetalleEdificio1Infoteca(Canvas canvas) {
+    // Ala superior derecha en amarillo suave (#FAF089)
+    final Rect alaSuave = Rect.fromLTRB(
+      offsetX + 0.456 * imgW,
+      offsetY + 0.831 * imgH,
+      offsetX + 0.487 * imgW,
+      offsetY + 0.870 * imgH,
+    );
+    canvas.drawRect(
+      alaSuave,
+      Paint()
+        ..color = isDark ? const Color(0xFFF6E05E) : const Color(0xFFFAF089),
+    );
+
+    // Patio interior blanco donde se ubica el numero "1"
+    final Rect patioBlanco = Rect.fromLTRB(
+      offsetX + 0.459 * imgW,
+      offsetY + 0.848 * imgH,
+      offsetX + 0.473 * imgW,
+      offsetY + 0.869 * imgH,
+    );
+    canvas.drawRect(
+      patioBlanco,
+      Paint()..color = Colors.white,
+    );
+  }
+
+  // Dibuja una cancha de futbol reglamentaria con areas grandes, areas chicas, medias lunas y circulo central
+  void _dibujarTrazoCanchaFutbol(
+    Canvas canvas, {
+    required double cxNorm,
+    required double cyNorm,
+    required double wNorm,
+    required double hNorm,
+    required double anguloGrados,
+    required bool ejeHorizontal,
+    required Paint paint,
+  }) {
+    final double cx = offsetX + cxNorm * imgW;
+    final double cy = offsetY + cyNorm * imgH;
+    final double w = wNorm * imgW;
+    final double h = hNorm * imgH;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    if (anguloGrados != 0.0) {
+      canvas.rotate(anguloGrados * math.pi / 180.0);
+    }
+
+    final Rect outer = Rect.fromCenter(center: Offset.zero, width: w, height: h);
+    canvas.drawRect(outer, paint);
+
+    if (!ejeHorizontal) {
+      // Porterias arriba y abajo (cancha vertical)
+      canvas.drawLine(Offset(-w * 0.5, 0), Offset(w * 0.5, 0), paint);
+      canvas.drawCircle(Offset.zero, w * 0.18, paint);
+
+      final double penW = w * 0.56;
+      final double penH = h * 0.17;
+      final double goalW = w * 0.28;
+      final double goalH = h * 0.07;
+
+      // Area superior e inferior
+      canvas.drawRect(
+        Rect.fromLTWH(-penW * 0.5, -h * 0.5, penW, penH),
+        paint,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(-goalW * 0.5, -h * 0.5, goalW, goalH),
+        paint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(0, -h * 0.5 + penH),
+          width: w * 0.22,
+          height: h * 0.09,
+        ),
+        0.0,
+        math.pi,
+        false,
+        paint,
+      );
+
+      canvas.drawRect(
+        Rect.fromLTWH(-penW * 0.5, h * 0.5 - penH, penW, penH),
+        paint,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(-goalW * 0.5, h * 0.5 - goalH, goalW, goalH),
+        paint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(0, h * 0.5 - penH),
+          width: w * 0.22,
+          height: h * 0.09,
+        ),
+        math.pi,
+        math.pi,
+        false,
+        paint,
+      );
+    } else {
+      // Porterias a la izquierda y derecha (cancha inclinada junto a la bandera)
+      canvas.drawLine(Offset(0, -h * 0.5), Offset(0, h * 0.5), paint);
+      canvas.drawCircle(Offset.zero, h * 0.18, paint);
+
+      final double penW = w * 0.17;
+      final double penH = h * 0.56;
+      final double goalW = w * 0.07;
+      final double goalH = h * 0.28;
+
+      // Area izquierda y derecha
+      canvas.drawRect(
+        Rect.fromLTWH(-w * 0.5, -penH * 0.5, penW, penH),
+        paint,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(-w * 0.5, -goalH * 0.5, goalW, goalH),
+        paint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(-w * 0.5 + penW, 0),
+          width: w * 0.09,
+          height: h * 0.22,
+        ),
+        -math.pi * 0.5,
+        math.pi,
+        false,
+        paint,
+      );
+
+      canvas.drawRect(
+        Rect.fromLTWH(w * 0.5 - penW, -penH * 0.5, penW, penH),
+        paint,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(w * 0.5 - goalW, -goalH * 0.5, goalW, goalH),
+        paint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(w * 0.5 - penW, 0),
+          width: w * 0.09,
+          height: h * 0.22,
+        ),
+        math.pi * 0.5,
+        math.pi,
+        false,
+        paint,
+      );
+    }
+
+    canvas.restore();
+  }
+
+  // Dibuja una cancha multiple / tenis con lineas interiores como las ubicadas al norponiente de la bandera
+  void _dibujarTrazoCanchaMultiple(
+    Canvas canvas, {
+    required double cxNorm,
+    required double cyNorm,
+    required double wNorm,
+    required double hNorm,
+    required double anguloGrados,
+    required Paint paint,
+  }) {
+    final double cx = offsetX + cxNorm * imgW;
+    final double cy = offsetY + cyNorm * imgH;
+    final double w = wNorm * imgW;
+    final double h = hNorm * imgH;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.rotate(anguloGrados * math.pi / 180.0);
+
+    canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: w, height: h), paint);
+    final double iw = w * 0.78;
+    final double ih = h * 0.72;
+    canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: iw, height: ih), paint);
+    canvas.drawLine(Offset(0, -ih * 0.5), Offset(0, ih * 0.5), paint);
+    canvas.drawLine(Offset(-iw * 0.25, -ih * 0.5), Offset(-iw * 0.25, ih * 0.5), paint);
+    canvas.drawLine(Offset(iw * 0.25, -ih * 0.5), Offset(iw * 0.25, ih * 0.5), paint);
+    canvas.drawLine(Offset(-iw * 0.25, 0), Offset(iw * 0.25, 0), paint);
+
+    canvas.restore();
+  }
+
+  // Dibuja los detalles arquitectonicos finos del Estadio Universitario, las 7 Canchas junto a la Bandera y Flecha de Norte
+  void _dibujarDetallesEstadioYCanchas(
+    Canvas canvas,
+    bool esSur,
+    double escala,
+  ) {
+    final Paint grassCourtPaint = Paint()
+      ..color = isDark
+          ? const Color(0xFF61753A)
+          : const Color(0xFFA4B252)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.85 * escala
+      ..isAntiAlias = true;
+
+    if (!esSur) {
+      // 1. Lineas blancas dentro de la cancha del Estadio Universitario (0.640, 0.364)
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.640,
+        cyNorm: 0.364,
+        wNorm: 0.088,
+        hNorm: 0.052,
+        anguloGrados: 24.0,
+        ejeHorizontal: true,
+        paint: Paint()
+          ..color = const Color(0xFFD6DAE2)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0 * escala
+          ..isAntiAlias = true,
+      );
+
+      // 2. Las 7 canchas deportivas alrededor de la Bandera (136) y edificios 301-303 (identicas al mapa original)
+      // Cancha 1: Futbol vertical a la derecha del edificio 301
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.438,
+        cyNorm: 0.362,
+        wNorm: 0.028,
+        hNorm: 0.048,
+        anguloGrados: 0.0,
+        ejeHorizontal: false,
+        paint: grassCourtPaint,
+      );
+      // Cancha 2: Futbol vertical inferior izquierda (debajo del 302)
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.391,
+        cyNorm: 0.405,
+        wNorm: 0.029,
+        hNorm: 0.048,
+        anguloGrados: 4.5,
+        ejeHorizontal: false,
+        paint: grassCourtPaint,
+      );
+      // Cancha 3: Futbol vertical inferior derecha (debajo del 301)
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.422,
+        cyNorm: 0.408,
+        wNorm: 0.029,
+        hNorm: 0.048,
+        anguloGrados: 4.5,
+        ejeHorizontal: false,
+        paint: grassCourtPaint,
+      );
+      // Canchas 4 y 5: Dos canchas multiples / tenis inclinadas al norponiente de la bandera
+      _dibujarTrazoCanchaMultiple(
+        canvas,
+        cxNorm: 0.528,
+        cyNorm: 0.300,
+        wNorm: 0.028,
+        hNorm: 0.015,
+        anguloGrados: 24.0,
+        paint: grassCourtPaint,
+      );
+      _dibujarTrazoCanchaMultiple(
+        canvas,
+        cxNorm: 0.538,
+        cyNorm: 0.324,
+        wNorm: 0.028,
+        hNorm: 0.015,
+        anguloGrados: 24.0,
+        paint: grassCourtPaint,
+      );
+      // Canchas 6 y 7: Dos canchas de futbol inclinadas inmediatamente al poniente de la bandera
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.524,
+        cyNorm: 0.358,
+        wNorm: 0.048,
+        hNorm: 0.029,
+        anguloGrados: 24.0,
+        ejeHorizontal: true,
+        paint: grassCourtPaint,
+      );
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.510,
+        cyNorm: 0.392,
+        wNorm: 0.048,
+        hNorm: 0.029,
+        anguloGrados: 24.0,
+        ejeHorizontal: true,
+        paint: grassCourtPaint,
+      );
+
+      // 3. Escultura emblema UAA en la explanada de Acceso Sur (0.402, 0.922)
+      final double ux = offsetX + 0.402 * imgW;
+      final double uy = offsetY + 0.922 * imgH;
+      canvas.drawCircle(
+        Offset(ux, uy),
+        6.5 * escala,
+        Paint()..color = const Color(0xFF64748B),
+      );
+    } else {
+      // Detalles especificos de Campus Sur:
+      // 1. Cancha de futbol en el area verde central (entre Edificio 16/17 y Edificio 10)
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.556,
+        cyNorm: 0.495,
+        wNorm: 0.022,
+        hNorm: 0.068,
+        anguloGrados: 0.0,
+        ejeHorizontal: false,
+        paint: grassCourtPaint,
+      );
+
+      // 2. Trazos internos de la Cancha de Basquetbol de Campus Sur (0.423..0.437, 0.515..0.574)
+      _dibujarTrazoCanchaFutbol(
+        canvas,
+        cxNorm: 0.430,
+        cyNorm: 0.5445,
+        wNorm: 0.0115,
+        hNorm: 0.052,
+        anguloGrados: 0.0,
+        ejeHorizontal: false,
+        paint: Paint()
+          ..color = isDark ? Colors.white38 : const Color(0xFF94A3B8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8 * escala
+          ..isAntiAlias = true,
+      );
+    }
+
+    // Flecha de Norte oficial (Rosa de los vientos DGIU)
+    final double nx = offsetX + (esSur ? 0.750 : 0.922) * imgW;
+    final double ny = offsetY + (esSur ? 0.140 : 0.115) * imgH;
+    final Path northPath = Path()
+      ..moveTo(nx, ny - 26 * escala)
+      ..lineTo(nx + 12 * escala, ny + 14 * escala)
+      ..lineTo(nx, ny + 4 * escala)
+      ..lineTo(nx - 12 * escala, ny + 14 * escala)
+      ..close();
+    canvas.save();
+    canvas.translate(nx, ny);
+    canvas.rotate((esSur ? -55.0 : 28.0) * math.pi / 180.0);
+    canvas.translate(-nx, -ny);
+    canvas.drawPath(
+      northPath,
+      Paint()
+        ..color = isDark ? Colors.white38 : const Color(0xFF94A3B8)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.restore();
+  }
+
+  // Dibuja cada uno de los pictogramas oficiales del plano DGIU (Banos, Vigilancia, E, Cafeteria, Biblioteca, Auditorio)
+  void _dibujarPictogramasOficiales(
+    Canvas canvas,
+    bool esSur,
+    double escala,
+  ) {
+    final List<IconoVectorialMapa> iconos = esSur
+        ? CampusVectorLayers.iconosSur
+        : CampusVectorLayers.iconosCentral;
+
+    final double boxSize = (esSur ? 14.5 : 13.0) * escala;
+    final double rad = 2.6 * escala;
+
+    for (final IconoVectorialMapa item in iconos) {
+      final double cx = offsetX + item.posX * imgW;
+      final double cy = offsetY + item.posY * imgH;
+
+      if (item.tipo == TipoIconoMapaUaa.estacionamiento) {
+        // Simbolo oficial (E): Circulo blanco con anillo rojo y letra E negra al centro
+        final double rE = boxSize * 0.56;
+        canvas.drawCircle(
+          Offset(cx, cy),
+          rE,
+          Paint()..color = Colors.white,
+        );
+        canvas.drawCircle(
+          Offset(cx, cy),
+          rE,
+          Paint()
+            ..color = const Color(0xFFE11D2A)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.6 * escala,
+        );
+        final TextPainter tpE = TextPainter(
+          text: TextSpan(
+            text: 'E',
+            style: TextStyle(
+              color: const Color(0xFF0F172A),
+              fontSize: boxSize * 0.72,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tpE.paint(
+          canvas,
+          Offset(cx - tpE.width / 2.0, cy - tpE.height / 2.0),
+        );
+        continue;
+      }
+
+      // Recuadro blanco con borde negro redondeado identico a la simbologia DGIU
+      final RRect box = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, cy),
+          width: boxSize,
+          height: boxSize,
+        ),
+        Radius.circular(rad),
+      );
+      canvas.drawRRect(box, Paint()..color = Colors.white);
+      canvas.drawRRect(
+        box,
+        Paint()
+          ..color = const Color(0xFF1E293B)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.15 * escala,
+      );
+
+      IconData iconData;
+      switch (item.tipo) {
+        case TipoIconoMapaUaa.sanitarios:
+          iconData = Icons.wc;
+        case TipoIconoMapaUaa.vigilancia:
+          iconData = Icons.local_police;
+        case TipoIconoMapaUaa.cafeteria:
+          iconData = Icons.restaurant;
+        case TipoIconoMapaUaa.biblioteca:
+          iconData = Icons.menu_book;
+        case TipoIconoMapaUaa.auditorio:
+          iconData = Icons.groups;
+        case TipoIconoMapaUaa.estacionamiento:
+          iconData = Icons.local_parking;
+      }
+
+      final TextPainter tpIcon = TextPainter(
+        text: TextSpan(
+          text: String.fromCharCode(iconData.codePoint),
+          style: TextStyle(
+            fontSize: boxSize * 0.74,
+            fontFamily: iconData.fontFamily,
+            package: iconData.fontPackage,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      tpIcon.paint(
+        canvas,
+        Offset(cx - tpIcon.width / 2.0, cy - tpIcon.height / 2.0),
+      );
+    }
+  }
+
+  // Dibuja todas las capas vectoriales 1:1 del campus (areas verdes, andadores, agua, edificios, iconos y textos)
   void _dibujarMapaBaseVectorial(Canvas canvas) {
     final bool esSur = idCampus == 2;
+    final double escala = (imgW / 950.0).clamp(0.65, 1.45);
 
+    // 1. Areas verdes oficiales del campus
     final Path verdePath = _construirPathEvenOdd(
       esSur ? CampusVectorLayers.surVerde : CampusVectorLayers.centralVerde,
     );
@@ -2035,6 +2503,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
+    // 2. Red completa de andadores peatonales grises
     final Path grisPath = _construirPathEvenOdd(
       esSur ? CampusVectorLayers.surGris : CampusVectorLayers.centralGris,
     );
@@ -2045,6 +2514,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
+    // 3. Cuerpos de agua (Rio San Pedro, Alberca Universitaria 209 y Canal Central)
     if (!esSur) {
       final Path aguaPath =
           _construirPathEvenOdd(CampusVectorLayers.centralAgua);
@@ -2056,16 +2526,20 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       );
     }
 
+    // 4. Edificios de Aulas, Laboratorios y Talleres
     final Path azulPath = _construirPathEvenOdd(
       esSur ? CampusVectorLayers.surAzul : CampusVectorLayers.centralAzul,
     );
     canvas.drawPath(
       azulPath,
       Paint()
-        ..color = isDark ? const Color(0xFF4B6C9E) : const Color(0xFF475C88)
+        ..color = esSur
+            ? (isDark ? const Color(0xFF2B3558) : const Color(0xFF232A48))
+            : (isDark ? const Color(0xFF4B6C9E) : const Color(0xFF475C88))
         ..style = PaintingStyle.fill,
     );
 
+    // 5. Edificios de Apoyo (en Campus Sur usan tono ambar dorado #E8A818 y las cisternas/pozos amarillo brillante #FFF000)
     final Path amarilloPath = _construirPathEvenOdd(
       esSur
           ? CampusVectorLayers.surAmarillo
@@ -2074,10 +2548,25 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     canvas.drawPath(
       amarilloPath,
       Paint()
-        ..color = isDark ? const Color(0xFFE5C71E) : const Color(0xFFF6DD0E)
+        ..color = esSur
+            ? (isDark ? const Color(0xFFD99B16) : const Color(0xFFEBA818))
+            : (isDark ? const Color(0xFFE5C71E) : const Color(0xFFF6DD0E))
         ..style = PaintingStyle.fill,
     );
 
+    if (esSur) {
+      final Path infraAmarillaPath = _construirPathEvenOdd(
+        CampusVectorLayers.surInfraestructuraAmarilla,
+      );
+      canvas.drawPath(
+        infraAmarillaPath,
+        Paint()
+          ..color = isDark ? const Color(0xFFF6E01E) : const Color(0xFFFFF000)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    // 6. Edificios Administrativos
     final Path rojoPath = _construirPathEvenOdd(
       esSur ? CampusVectorLayers.surRojo : CampusVectorLayers.centralRojo,
     );
@@ -2088,10 +2577,22 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
+    // 7. Detalles del Edificio 1 (Infoteca), Estadio, Canchas, Flecha Norte y Bandera Monumental Ondulando
+    if (!esSur) {
+      _dibujarDetalleEdificio1Infoteca(canvas);
+    }
+    _dibujarDetallesEstadioYCanchas(canvas, esSur, escala);
+    if (!esSur) {
+      _dibujarBanderaMonumentalMexico(canvas, escala);
+    }
+
+    // 8. Todos los Pictogramas Oficiales: Banos, Guardias/Vigilancia, Estacionamientos (E), Cafeterias, Bibliotecas y Auditorios
+    _dibujarPictogramasOficiales(canvas, esSur, escala);
+
+    // 9. Rotulos oficiales de vialidades, cisterna, pozo de agua, planta tratadora, subestacion CFE, etc.
     final List<EtiquetaVectorialMapa> etiquetas = esSur
         ? CampusVectorLayers.etiquetasSur
         : CampusVectorLayers.etiquetasCentral;
-    final double escalaTexto = (imgW / 950.0).clamp(0.65, 1.45);
 
     for (final EtiquetaVectorialMapa et in etiquetas) {
       final double px = offsetX + et.posX * imgW;
@@ -2102,8 +2603,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
           style: TextStyle(
             color: et.esVialidad
                 ? (isDark ? Colors.white70 : const Color(0xFF1E293B))
-                : Colors.white,
-            fontSize: et.tamanoFuente * escalaTexto,
+                : const Color(0xFF0F172A),
+            fontSize: et.tamanoFuente * escala,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.2,
           ),
@@ -2120,16 +2621,16 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       canvas.restore();
     }
 
-    final double fontEdif = (esSur ? 10.5 : 7.6) * escalaTexto;
+    // 10. Numeros vectoriales nitidos sobre cada uno de los 154 / 19 edificios individuales
+    final double fontEdif = (esSur ? 11.8 : 7.6) * escala;
     for (final EdificioMapaUaa edif in edificiosCampus) {
       if (edif.codigo.startsWith('ACCESO')) {
         continue;
       }
-      final String numTexto =
-          edif.codigo.replaceFirst('EDIF ', '').replaceAll('-', '');
+      final String numTexto = edif.codigo.replaceFirst('EDIF ', '');
       final double px = offsetX + edif.posX * imgW;
       final double py = offsetY + edif.posY * imgH;
-      final bool esApoyoAmarillo = edif.zona.contains('Apoyo');
+      final bool usarTextoOscuro = esSur || edif.zona.contains('Apoyo');
 
       final TextPainter tpHalo = TextPainter(
         text: TextSpan(
@@ -2139,9 +2640,10 @@ class _VectorCampusOverlayPainter extends CustomPainter {
             fontWeight: FontWeight.w900,
             foreground: Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = 2.2
-              ..color =
-                  esApoyoAmarillo ? Colors.white : const Color(0xFF0F172A),
+              ..strokeWidth = esSur ? 1.8 : 2.2
+              ..color = usarTextoOscuro
+                  ? Colors.white.withValues(alpha: esSur ? 0.65 : 1.0)
+                  : const Color(0xFF0F172A),
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -2153,7 +2655,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
           style: TextStyle(
             fontSize: fontEdif,
             fontWeight: FontWeight.w900,
-            color: esApoyoAmarillo ? const Color(0xFF0F172A) : Colors.white,
+            color: usarTextoOscuro ? const Color(0xFF1A1D24) : Colors.white,
           ),
         ),
         textDirection: TextDirection.ltr,
