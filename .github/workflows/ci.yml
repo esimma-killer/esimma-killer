@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
       - entrega-2
       - entrega-3
       - "feat/**"
@@ -11,9 +12,13 @@ on:
       - "docs/**"
       - "test/**"
       - "devops/**"
+      - "backend/**"
+      - "database/**"
+      - "frontend/**"
   pull_request:
     branches:
       - main
+      - dev
       - entrega-2
       - entrega-3
 

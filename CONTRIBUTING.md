@@ -14,55 +14,63 @@ Bienvenido al repositorio oficial del **Proyecto Final Integrador E-SIIMA Killer
 
 ---
 
-## 2. Estrategia de Ramas (Git Flow por Entrega y Sub-Ramas)
+## 2. Estrategia de Ramas (Git Flow con Rama `dev` y Sub-Ramas)
 
-Utilizamos un flujo jerárquico de tres niveles (**`main` $\leftarrow$ `entrega-2` $\leftarrow$ `sub-ramas por issue`**):
+Utilizamos el flujo **Git Flow** basado en tres niveles (**`main` $\leftarrow$ `dev` $\leftarrow$ `sub-ramas por issue`**):
 
 ```text
-main (Rama principal protegida)
- └── entrega-2 (Rama de integración de la Segunda Entrega — se une a main vía PR)
-      ├── docs/issue-15-estategia-git        (Sub-rama Paso 1 -> merge a entrega-2)
-      ├── feat/issue-7-estructura-backend    (Sub-rama Paso 2 -> merge a entrega-2)
-      ├── feat/issue-8-clases-dominio-poo    (Sub-rama Paso 3 -> merge a entrega-2)
-      ├── feat/issue-9-excepciones-dominio   (Sub-rama Paso 4 -> merge a entrega-2)
-      ├── feat/issue-10-api-rest-fastapi     (Sub-rama Paso 5 -> merge a entrega-2)
-      ├── test/issue-11-suite-pytest         (Sub-rama Paso 6 -> merge a entrega-2)
-      ├── devops/issue-12-pipeline-ci        (Sub-rama Paso 7 -> merge a entrega-2)
-      ├── devops/issue-13-docker-compose     (Sub-rama Paso 8 -> merge a entrega-2)
-      └── feat/issue-14-estructura-flutter   (Sub-rama Paso 9 -> merge a entrega-2)
+main (Rama de producción / entregas cerradas y aprobadas)
+ └── dev (Rama principal de integración continua del equipo — siempre tiene lo más reciente)
+      ├── docs/issue-15-estategia-git              (Sub-rama -> merge a dev)
+      ├── feat/issue-7-estructura-backend          (Sub-rama -> merge a dev)
+      ├── feat/issue-8-clases-dominio-poo          (Sub-rama -> merge a dev)
+      ├── feat/issue-9-excepciones-dominio         (Sub-rama -> merge a dev)
+      ├── feat/issue-10-api-rest-fastapi           (Sub-rama -> merge a dev)
+      ├── test/issue-11-suite-pytest               (Sub-rama -> merge a dev)
+      ├── devops/issue-12-pipeline-ci              (Sub-rama -> merge a dev)
+      ├── devops/issue-13-docker-compose           (Sub-rama -> merge a dev)
+      ├── feat/issue-16-generador-datos-sinteticos (Sub-rama -> merge a dev)
+      ├── feat/issue-17-limpieza-datos-pandas      (Sub-rama -> merge a dev)
+      └── feat/issue-20-esquema-nosql-mongodb      (Sub-rama -> merge a dev)
 ```
 
-1. **`main` (Rama Principal):**
-   - Contiene únicamente las entregas cerradas y estables.
-   - Recibe los cambios al concluir la entrega mediante un **Pull Request desde `entrega-2` hacia `main`**.
-2. **`entrega-2` (Rama Auxiliar de Integración):**
-   - Rama donde convergen todas las implementaciones de la Segunda Entrega.
+1. **`main` (Rama Principal Protegida):**
+   - Contiene únicamente las entregas cerradas y estables para evaluación docente.
+   - Solo recibe cambios mediante un **Pull Request desde `dev` hacia `main`** al cierre de cada entrega.
+2. **`dev` (Rama Central de Desarrollo):**
+   - Es el punto de encuentro de todo el equipo. Aquí viven los cambios más recientes que ya fueron terminados y probados.
+   - **Ningún integrante programa directo sobre `dev`**: desde `dev` se crean las sub-ramas de cada issue y hacia `dev` se integran cuando están listas.
 3. **Sub-ramas de Trabajo por Issue:**
-   - Cada implementación sale desde `entrega-2` y, una vez validada, se integra mediante `git merge --no-ff` hacia `entrega-2`:
-     - `docs/issue-<N>-<descripcion-corta>`
-     - `feat/issue-<N>-<descripcion-corta>`
-     - `test/issue-<N>-<descripcion-corta>`
-     - `devops/issue-<N>-<descripcion-corta>`
+   - Cada tarea individual sale desde `dev` actualizada y, una vez validada con pruebas y linters, se integra mediante `git merge --no-ff` (o Pull Request) de vuelta a `dev`:
+     - `feat/issue-<N>-<descripcion>`
+     - `backend/issue-<N>-<descripcion>`
+     - `database/issue-<N>-<descripcion>`
+     - `frontend/issue-<N>-<descripcion>`
+     - `devops/issue-<N>-<descripcion>`
+     - `docs/issue-<N>-<descripcion>`
 
-### Comandos Estándar para Desarrollar un Issue
+### Comandos Estándar para Trabajar con la Rama `dev`
 
 ```bash
-# 1. Posicionarse en la rama de la entrega actualizada
-git checkout entrega-2
-git pull origin entrega-2
+# 1. Posicionarse en la rama dev y descargar los cambios más recientes del equipo
+git checkout dev
+git pull origin dev
 
-# 2. Crear la sub-rama para el issue especifico
-git checkout -b feat/issue-7-estructura-backend
+# 2. Crear tu sub-rama para el issue que vas a trabajar
+git checkout -b feat/issue-21-landing-flutter
 
-# 3. Hacer commits siguiendo Conventional Commits
+# 3. Guardar tus avances en tu sub-rama con Conventional Commits
 git add .
-git commit -m "feat(backend): configurar estructura modular de paquetes (#7)"
-git push -u origin feat/issue-7-estructura-backend
+git commit -m "feat(frontend): maquetar landing page institucional UAA (#21)"
+git push -u origin feat/issue-21-landing-flutter
 
-# 4. Integrar la sub-rama de vuelta a entrega-2
-git checkout entrega-2
-git merge --no-ff feat/issue-7-estructura-backend -m "merge: integrar feat/issue-7-estructura-backend en entrega-2 (#7)"
-git push origin entrega-2
+# 4. Cuando tu issue esté terminado y probado, integrarlo a dev
+git checkout dev
+git pull origin dev
+git merge --no-ff feat/issue-21-landing-flutter -m "merge: integrar feat/issue-21-landing-flutter en dev (#21)"
+git push origin dev
+
+# 5. Al cierre de cada entrega: abrir Pull Request en GitHub desde `dev` hacia `main`
 ```
 
 ---
