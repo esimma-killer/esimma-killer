@@ -114,3 +114,18 @@ class PagoRechazadoError(DominioError):
             codigo_error="PAGO_RECHAZADO",
             detalles=info,
         )
+
+
+class PersistenciaError(DominioError):
+    """Error traducido ante fallos de persistencia transaccional."""
+
+    def __init__(
+        self, mensaje: str, operacion: str, detalles: dict[str, object] | None = None
+    ) -> None:
+        info = dict(detalles or {})
+        info["operacion"] = operacion
+        super().__init__(
+            mensaje=mensaje,
+            codigo_error="PERSISTENCIA_ERROR",
+            detalles=info,
+        )
