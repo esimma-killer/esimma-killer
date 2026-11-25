@@ -273,48 +273,57 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             ),
             // La barra azul con las secciones solo se muestra afuera en PC o Laptop
             if (isPcOrLaptop) _buildNavyNavigationBar(),
-            // Cuerpo desplazable con transicion suave al cambiar entre ventanas del portal
+            // En Mapa Universitario ocupa toda la pantalla sin scroll ni footer (modo Google Maps)
             Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                        final Animation<Offset> slideAnimation = Tween<Offset>(
-                          begin: const Offset(0, 0.015),
-                          end: Offset.zero,
-                        ).animate(animation);
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: slideAnimation,
-                            child: child,
+              child: _seccionActiva == SeccionPortalUaa.mapaUniversitario
+                  ? _buildDedicatedMapWindow(
+                      theme: theme,
+                      secondaryTextColor: secondaryTextColor,
+                      horizontalPadding: horizontalPadding,
+                    )
+                  : SingleChildScrollView(
+                      controller: _scrollController,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 320),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (
+                              Widget child,
+                              Animation<double> animation,
+                            ) {
+                              final Animation<Offset> slideAnimation =
+                                  Tween<Offset>(
+                                begin: const Offset(0, 0.015),
+                                end: Offset.zero,
+                              ).animate(animation);
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: slideAnimation,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey<SeccionPortalUaa>(_seccionActiva),
+                              child: _buildActiveWindowContent(
+                                theme: theme,
+                                secondaryTextColor: secondaryTextColor,
+                                isDark: isDark,
+                                isMobile: isMobile,
+                                isTablet: isTablet,
+                                horizontalPadding: horizontalPadding,
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key: ValueKey<SeccionPortalUaa>(_seccionActiva),
-                        child: _buildActiveWindowContent(
-                          theme: theme,
-                          secondaryTextColor: secondaryTextColor,
-                          isDark: isDark,
-                          isMobile: isMobile,
-                          isTablet: isTablet,
-                          horizontalPadding: horizontalPadding,
-                        ),
+                          const SizedBox(height: 24),
+                          _buildOfficialUaaFooter(isMobile, horizontalPadding),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    _buildOfficialUaaFooter(isMobile, horizontalPadding),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -492,39 +501,37 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Ventana 2 (Dedicada): Mapa Universitario amplio a pantalla completa
+  // Ventana 2 (Dedicada): Mapa Universitario a pantalla completa sin scroll de pagina ni footer
   Widget _buildDedicatedMapWindow({
     required ThemeData theme,
     required Color secondaryTextColor,
     required double horizontalPadding,
   }) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1520),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: 24,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            10,
+            horizontalPadding,
+            8,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildSecondaryWindowTopBar(
-                titulo: 'MAPA UNIVERSITARIO Y UBICADOR DE EDIFICIOS UAA',
-                subtitulo:
-                    'Vista dedicada de gran tamano para localizar edificios, laboratorios, bibliotecas, auditorios y cajas en Campus Central y Sur.',
-                theme: theme,
-                secondaryTextColor: secondaryTextColor,
-              ),
-              const SizedBox(height: 20),
-              InteractiveCampusMapSection(
-                repository: widget.repository,
-                initialCampusId: _idCampusSeleccionado,
-              ),
-            ],
+          child: _buildSecondaryWindowTopBar(
+            titulo: 'MAPA UNIVERSITARIO Y UBICADOR DE EDIFICIOS UAA',
+            subtitulo:
+                'Vista dedicada de gran tamano para localizar edificios, laboratorios, bibliotecas, auditorios y cajas en Campus Central y Sur.',
+            theme: theme,
+            secondaryTextColor: secondaryTextColor,
           ),
         ),
-      ),
+        Expanded(
+          child: InteractiveCampusMapSection(
+            repository: widget.repository,
+            initialCampusId: _idCampusSeleccionado,
+          ),
+        ),
+      ],
     );
   }
 

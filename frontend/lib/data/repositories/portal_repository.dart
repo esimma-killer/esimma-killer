@@ -1,9 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/aviso_institucional.dart';
 import '../../domain/entities/campus_info.dart';
 import '../../domain/entities/evento_calendario.dart';
 import '../../domain/entities/portal_models.dart';
+import 'campus_map_data.dart';
 
 // Repositorio de datos publicos y herramientas para alumnos y docentes del portal UAA
 class PortalRepository {
@@ -629,225 +631,175 @@ class PortalRepository {
     }).toList();
   }
 
-  // Devuelve el catalogo oficial de edificios basado en los mapas DGIU de Campus Central y Campus Sur
+  // Devuelve el catalogo oficial completo de edificios individuales (153 en Central y 19 en Sur)
   List<EdificioMapaUaa> obtenerEdificiosMapa({required int idCampus}) {
-    const List<EdificioMapaUaa> edificios = <EdificioMapaUaa>[
-      // Campus Central (idCampus = 1 - Mapa Oficial Ciudad Universitaria)
-      EdificioMapaUaa(
-        codigo: 'EDIF 1-A',
-        nombre: 'Edificio 1-A "C.P. Humberto Martinez de Leon"',
-        zona: 'Edificios Administrativos (Acceso Sur Av. Universidad)',
-        tramitesServicios:
-            'Departamento de Control Escolar, Departamento de Cajas y Derechos Universitarios.',
-        horarioAtencion: '08:00 - 15:30 hrs',
-        idCampus: 1,
-        posX: 0.61,
-        posY: 0.82,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 224',
-        nombre: 'Rectoria y Direcciones Generales (Torre Administrativa)',
-        zona: 'Edificios Administrativos (Poniente Av. Guadalupe Gonzalez)',
-        tramitesServicios:
-            'Rectoria, Secretaria General, Docencia de Pregrado, Investigacion y Posgrado, Servicios Educativos y Sala Magna.',
-        horarioAtencion: '08:00 - 15:30 hrs',
-        idCampus: 1,
-        posX: 0.52,
-        posY: 0.81,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 65',
-        nombre: 'Biblioteca Central y Auditorio "Dr. Pedro de Alba"',
-        zona: 'Edificios de Apoyo (Zona Central - Jardin de las Generaciones)',
-        tramitesServicios:
-            'Biblioteca Central, acervo general, cubiculos de estudio y Auditorio Dr. Pedro de Alba para creditos humanisticos.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 1,
-        posX: 0.66,
-        posY: 0.73,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 202',
-        nombre: 'Centro de Ciencias Basicas y Auditorio "Ing. Javier Salazar Negrete"',
-        zona: 'Zona Central-Poniente Ciencias Basicas',
-        tramitesServicios:
-            'Decanato de Ciencias Basicas, coordinaciones de ingenieria y ciencias, y auditorio de ciencias basicas.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 1,
-        posX: 0.59,
-        posY: 0.55,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 56 / 60',
-        nombre: 'Laboratorios de Computo, Sistemas y Aulas de Ciencias Basicas',
-        zona: 'Cuadrante Central-Norte (Edificios 54 al 61)',
-        tramitesServicios:
-            'Salas de computo, redes, desarrollo de software, electronica y aulas de ingenieria en computacion.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 1,
-        posX: 0.65,
-        posY: 0.63,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 32',
-        nombre: 'Centro de Ciencias Economico Administrativas (CCEA)',
-        zona: 'Zona Oriente (Av. Aguascalientes Norte)',
-        tramitesServicios:
-            'Decanato CCEA, aulas y laboratorios de administracion, contaduria, finanzas y mercadotecnia.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 1,
-        posX: 0.82,
-        posY: 0.63,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 101',
-        nombre: 'Centro de Ciencias de la Salud y Unidad Medico Didactica (UMD)',
-        zona: 'Zona Sur-Oriente Salud',
-        tramitesServicios:
-            'Unidad Medico Didactica, Clinica de Estomatologia (101A), Enfermeria (101B) y Auditorio Dr. Alfonso Perez Romo.',
-        horarioAtencion: '07:30 - 20:00 hrs',
-        idCampus: 1,
-        posX: 0.86,
-        posY: 0.88,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 108',
-        nombre: 'Centro de Ciencias del Diseno y de la Construccion (CCDC)',
-        zona: 'Extremo Sur-Oriente',
-        tramitesServicios:
-            'Decanato CCDC, Sala Expoforo (108B), Laboratorio de Modelacion (108C) y talleres de diseno e ingenieria civil.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 1,
-        posX: 0.93,
-        posY: 0.87,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 211',
-        nombre: 'Unidad de Segundo Idioma y CAADI',
-        zona: 'Zona Poniente Idiomas',
-        tramitesServicios:
-            'Centro de Aprendizaje Autodirigido de Idiomas (CAADI), cursos de lenguas extranjeras y examenes de colocacion.',
-        horarioAtencion: '07:00 - 20:00 hrs',
-        idCampus: 1,
-        posX: 0.56,
-        posY: 0.71,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 9 / 133C',
-        nombre: 'Comedor Universitario, Libreria y Poliforum Deportivo',
-        zona: 'Edificios de Apoyo y Unidad Deportiva Prof. Enrique Olivares Santana',
-        tramitesServicios:
-            'Comedor estudiantil, Libreria Universitaria, Tienda de la Posta, Gimnasio (133B) y Poliforum (133C).',
-        horarioAtencion: '07:30 - 20:30 hrs',
-        idCampus: 1,
-        posX: 0.72,
-        posY: 0.77,
-      ),
-      // Campus Sur (idCampus = 2 - Mapa Oficial Campus Sur)
-      EdificioMapaUaa(
-        codigo: 'EDIF 7',
-        nombre: 'Centro de Ciencias de la Ingenieria y Ciencias Empresariales',
-        zona: 'Edificio Administrativo Central (Andador Principal)',
-        tramitesServicios:
-            'Decanatos del Centro de Ciencias de la Ingenieria y del Centro de Ciencias Empresariales, coordinaciones y administracion.',
-        horarioAtencion: '08:00 - 16:00 hrs',
-        idCampus: 2,
-        posX: 0.65,
-        posY: 0.51,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 1',
-        nombre: 'Auditorio Polivalente Campus Sur',
-        zona: 'Plaza de Acceso (Av. Prol. Mahatma Gandhi)',
-        tramitesServicios:
-            'Conferencias, exposicion de proyectos integradores, eventos de creditos humanisticos y ceremonias.',
-        horarioAtencion: '08:00 - 20:00 hrs',
-        idCampus: 2,
-        posX: 0.89,
-        posY: 0.51,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 2',
-        nombre: 'Servicios Estudiantiles Campus Sur',
-        zona: 'Edificios de Apoyo (Acceso Oriente)',
-        tramitesServicios:
-            'Ventanilla de Control Escolar Sur, atencion a alumnos, becas y tramites administrativos.',
-        horarioAtencion: '08:00 - 15:30 hrs',
-        idCampus: 2,
-        posX: 0.79,
-        posY: 0.59,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 3',
-        nombre: 'Biblioteca Campus Sur',
-        zona: 'Edificios de Apoyo (Andador Principal Oriente)',
-        tramitesServicios:
-            'Acervo bibliografico de ingenieria y negocios, salas de lectura, prestamo de equipos y cubiculos.',
-        horarioAtencion: '07:30 - 20:30 hrs',
-        idCampus: 2,
-        posX: 0.76,
-        posY: 0.50,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 4, 5 y 6',
-        nombre: 'Aulas Inteligentes (Edificios 4, 5, 6-I, 6-II, 12 y 13)',
-        zona: 'Aulas, Laboratorios y Talleres (Andador Principal)',
-        tramitesServicios:
-            'Salones multimedia de ingenieria y ciencias empresariales, salas de computo y proyectores interactivos.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 2,
-        posX: 0.71,
-        posY: 0.54,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 8 y 10',
-        nombre: 'Taller de Ingenieria Biomedica (8) y Centro de Operacion de Red (10)',
-        zona: 'Zona Central de Laboratorios Sur',
-        tramitesServicios:
-            'Instrumentacion biomedica, telecomunicaciones, servidores y nodo de red de Campus Sur.',
-        horarioAtencion: '07:00 - 21:00 hrs',
-        idCampus: 2,
-        posX: 0.65,
-        posY: 0.60,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 9',
-        nombre: 'Cafeteria Universitaria Campus Sur',
-        zona: 'Edificios de Apoyo (Zona Norte Central)',
-        tramitesServicios:
-            'Comedor estudiantil con menu del dia subsidiado, cafeteria y area de convivencia.',
-        horarioAtencion: '07:30 - 18:00 hrs',
-        idCampus: 2,
-        posX: 0.61,
-        posY: 0.48,
-      ),
-      EdificioMapaUaa(
-        codigo: 'EDIF 15, 16 y 17',
-        nombre: 'Infoteca / Materiales (15), Taller de Robotica (16) y Automotriz (17)',
-        zona: 'Zona Poniente de Talleres Especializados',
-        tramitesServicios:
-            'Infoteca y Unidad de Investigacion de Materiales (15), Taller de Ingenieria Robotica (16) y Taller Automotriz (17).',
-        horarioAtencion: '07:00 - 20:30 hrs',
-        idCampus: 2,
-        posX: 0.52,
-        posY: 0.60,
-      ),
-      EdificioMapaUaa(
-        codigo: 'PDC',
-        nombre: 'Poliforum Deportivo y Cultural Campus Sur',
-        zona: 'Zona Deportiva Poniente (junto a Cancha de Basquetbol)',
-        tramitesServicios:
-            'Actividades deportivas Gallos, eventos culturales, torneos intercentros y talleres de formacion integral.',
-        horarioAtencion: '07:30 - 20:00 hrs',
-        idCampus: 2,
-        posX: 0.47,
-        posY: 0.59,
-      ),
+    if (idCampus == 2) {
+      return CampusMapData.obtenerEdificiosSur();
+    }
+    return CampusMapData.obtenerEdificiosCentral();
+  }
+
+  // Devuelve la red completa de nodos y pasillos peatonales conectando cada edificio individual
+  List<NodoPasilloUaa> obtenerGrafoPasillos({required int idCampus}) {
+    if (idCampus == 2) {
+      return CampusMapData.obtenerNodosSur();
+    }
+    return CampusMapData.obtenerNodosCentral();
+  }
+
+  // Calcula la ruta peatonal mas corta entre dos puntos del campus usando el algoritmo de Dijkstra
+  RutaPeatonalUaa calcularRutaPeatonal({
+    required int idCampus,
+    required String idNodoOrigen,
+    required String idNodoDestino,
+  }) {
+    final List<EdificioMapaUaa> edificios =
+        obtenerEdificiosMapa(idCampus: idCampus);
+    final List<NodoPasilloUaa> nodos =
+        obtenerGrafoPasillos(idCampus: idCampus);
+
+    final EdificioMapaUaa origen = edificios.firstWhere(
+      (EdificioMapaUaa e) => e.idNodo == idNodoOrigen,
+      orElse: () => edificios.first,
+    );
+    final EdificioMapaUaa destino = edificios.firstWhere(
+      (EdificioMapaUaa e) => e.idNodo == idNodoDestino,
+      orElse: () => edificios.last,
+    );
+
+    final Map<String, NodoPasilloUaa> mapaNodos = <String, NodoPasilloUaa>{
+      for (final NodoPasilloUaa n in nodos) n.id: n,
+    };
+
+    // Si el origen y el destino son el mismo edificio, devuelve ruta inmediata de 0 metros
+    if (origen.idNodo == destino.idNodo) {
+      final NodoPasilloUaa? nodoUnico = mapaNodos[origen.idNodo];
+      return RutaPeatonalUaa(
+        origen: origen,
+        destino: destino,
+        puntosTrayecto:
+            nodoUnico != null ? <NodoPasilloUaa>[nodoUnico] : <NodoPasilloUaa>[],
+        distanciaMetros: 0,
+        tiempoMinutos: 1,
+        indicacionesPasoAPaso: <String>[
+          'Ya te encuentras en ${origen.codigo} (${origen.nombre}).',
+          if (origen.salonesReferencia.isNotEmpty)
+            'Espacios y salones en este punto: ${origen.salonesReferencia}.',
+        ],
+      );
+    }
+
+    // Construye lista de adyacencia bidireccional para garantizar caminos simetricos
+    final Map<String, Set<String>> adyacencia = <String, Set<String>>{};
+    for (final NodoPasilloUaa n in nodos) {
+      adyacencia.putIfAbsent(n.id, () => <String>{});
+      for (final String vecinoId in n.conectadosCon) {
+        if (mapaNodos.containsKey(vecinoId)) {
+          adyacencia[n.id]!.add(vecinoId);
+          adyacencia.putIfAbsent(vecinoId, () => <String>{}).add(n.id);
+        }
+      }
+    }
+
+    // Inicializacion de estructuras del algoritmo de Dijkstra
+    final Map<String, double> distancias = <String, double>{
+      for (final NodoPasilloUaa n in nodos) n.id: double.infinity,
+    };
+    final Map<String, String?> previos = <String, String?>{};
+    final Set<String> noVisitados = <String>{
+      for (final NodoPasilloUaa n in nodos) n.id,
+    };
+
+    distancias[origen.idNodo] = 0.0;
+
+    while (noVisitados.isNotEmpty) {
+      String? actualId;
+      double menorDistancia = double.infinity;
+      for (final String candidato in noVisitados) {
+        final double d = distancias[candidato] ?? double.infinity;
+        if (d < menorDistancia) {
+          menorDistancia = d;
+          actualId = candidato;
+        }
+      }
+
+      if (actualId == null ||
+          actualId == destino.idNodo ||
+          menorDistancia == double.infinity) {
+        break;
+      }
+
+      noVisitados.remove(actualId);
+      final NodoPasilloUaa nodoActual = mapaNodos[actualId]!;
+
+      for (final String vecinoId in adyacencia[actualId] ?? const <String>{}) {
+        if (!noVisitados.contains(vecinoId)) {
+          continue;
+        }
+        final NodoPasilloUaa nodoVecino = mapaNodos[vecinoId]!;
+        final double dx = nodoVecino.posX - nodoActual.posX;
+        final double dy = nodoVecino.posY - nodoActual.posY;
+        final double pesoArista = math.sqrt(dx * dx + dy * dy);
+        final double nuevaDistancia = menorDistancia + pesoArista;
+
+        if (nuevaDistancia < (distancias[vecinoId] ?? double.infinity)) {
+          distancias[vecinoId] = nuevaDistancia;
+          previos[vecinoId] = actualId;
+        }
+      }
+    }
+
+    // Reconstruye la secuencia de nodos desde el origen hasta el destino
+    final List<NodoPasilloUaa> trayecto = <NodoPasilloUaa>[];
+    String? cursor = destino.idNodo;
+    while (cursor != null && mapaNodos.containsKey(cursor)) {
+      trayecto.insert(0, mapaNodos[cursor]!);
+      cursor = previos[cursor];
+    }
+
+    if (trayecto.isEmpty || trayecto.first.id != origen.idNodo) {
+      trayecto
+        ..clear()
+        ..add(mapaNodos[origen.idNodo]!)
+        ..add(mapaNodos[destino.idNodo]!);
+    }
+
+    // Calcula la distancia real aproximada en metros y el tiempo estimado a pie
+    final double distanciaNormalizada =
+        distancias[destino.idNodo] ?? 0.18;
+    final double factorEscalaMetros = idCampus == 1 ? 760.0 : 680.0;
+    final int metros =
+        (distanciaNormalizada * factorEscalaMetros).round().clamp(35, 1400);
+    final int minutos = (metros / 75.0).ceil().clamp(1, 19);
+
+    // Genera las indicaciones paso a paso sin repetir el mismo pasillo consecutivo
+    final List<String> pasos = <String>[
+      '1. Punto de partida: ${origen.codigo} - ${origen.nombre}.',
     ];
 
-    return edificios
-        .where((EdificioMapaUaa e) => e.idCampus == idCampus)
-        .toList();
+    int numeroPaso = 2;
+    String ultimaEtiqueta = '';
+    for (int i = 1; i < trayecto.length - 1; i++) {
+      final String etiquetaActual = trayecto[i].etiqueta;
+      if (etiquetaActual.isNotEmpty && etiquetaActual != ultimaEtiqueta) {
+        pasos.add('$numeroPaso. Avanza por: $etiquetaActual.');
+        ultimaEtiqueta = etiquetaActual;
+        numeroPaso++;
+      }
+    }
+
+    pasos.add(
+      '$numeroPaso. Llegada a tu destino: ${destino.codigo} - ${destino.nombre}.',
+    );
+
+    return RutaPeatonalUaa(
+      origen: origen,
+      destino: destino,
+      puntosTrayecto: trayecto,
+      distanciaMetros: metros,
+      tiempoMinutos: minutos,
+      indicacionesPasoAPaso: pasos,
+    );
   }
 
   // Devuelve el directorio de Centros Academicos de la UAA

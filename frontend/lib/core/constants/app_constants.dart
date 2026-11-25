@@ -18,11 +18,11 @@ class AppConstants {
   static const String logoUaaDarkAsset = 'assets/images/logo_uaa(calidad).png';
   static const String faviconUaaAsset = 'assets/images/logo_uaa(calidad).png';
 
-  // Mapas oficiales de alta resolucion de la Direccion General de Infraestructura Universitaria (DGIU)
+  // Mapas oficiales de alta resolucion sin leyendas laterales para abarcar toda la pantalla
   static const String mapaOficialCentralAsset =
-      'assets/images/CAMPUS-CENTRAL-2025.jpg';
+      'assets/images/CAMPUS-CENTRAL-LIMPIO.jpg';
   static const String mapaOficialSurAsset =
-      'assets/images/CAMPUS-SUR-2023.jpg';
+      'assets/images/CAMPUS-SUR-LIMPIO.jpg';
 
   // Fotografias oficiales del campus UAA para el carrusel hero principal
   static const List<String> campusHeroImages = <String>[

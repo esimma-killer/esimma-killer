@@ -208,26 +208,78 @@ class ActividadUniversitaria {
   });
 }
 
-// Modelo que representa un edificio o punto de interes dentro del croquis del campus
+// Coordenada normalizada (0.0 a 1.0) de un vertice poligonal dentro del plano oficial UAA
+class PuntoMapaUaa {
+  final double x;
+  final double y;
+
+  const PuntoMapaUaa(this.x, this.y);
+}
+
+// Modelo que representa un edificio o acceso individual dentro del mapa oficial de la UAA
 class EdificioMapaUaa {
+  final String idNodo;
   final String codigo;
   final String nombre;
   final String zona;
   final String tramitesServicios;
+  final String salonesReferencia;
   final String horarioAtencion;
   final int idCampus;
   final double posX;
   final double posY;
+  final bool esPuntoPartidaFrecuente;
+  final List<PuntoMapaUaa> poligono;
 
   const EdificioMapaUaa({
+    this.idNodo = '',
     required this.codigo,
     required this.nombre,
     required this.zona,
     required this.tramitesServicios,
+    this.salonesReferencia = '',
     required this.horarioAtencion,
     required this.idCampus,
     required this.posX,
     required this.posY,
+    this.esPuntoPartidaFrecuente = false,
+    this.poligono = const <PuntoMapaUaa>[],
+  });
+}
+
+// Nodo del grafo peatonal del campus (puede ser un edificio o una interseccion de andador)
+class NodoPasilloUaa {
+  final String id;
+  final String etiqueta;
+  final double posX;
+  final double posY;
+  final List<String> conectadosCon;
+
+  const NodoPasilloUaa({
+    required this.id,
+    required this.etiqueta,
+    required this.posX,
+    required this.posY,
+    required this.conectadosCon,
+  });
+}
+
+// Resultado del calculo de ruta peatonal mas corta entre origen y destino
+class RutaPeatonalUaa {
+  final EdificioMapaUaa origen;
+  final EdificioMapaUaa destino;
+  final List<NodoPasilloUaa> puntosTrayecto;
+  final int distanciaMetros;
+  final int tiempoMinutos;
+  final List<String> indicacionesPasoAPaso;
+
+  const RutaPeatonalUaa({
+    required this.origen,
+    required this.destino,
+    required this.puntosTrayecto,
+    required this.distanciaMetros,
+    required this.tiempoMinutos,
+    required this.indicacionesPasoAPaso,
   });
 }
 
