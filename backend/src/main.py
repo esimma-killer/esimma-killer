@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.routers import (
     academico_router,
+    auth_router,
     health_router,
     informacion_router,
     pagos_router,
@@ -29,6 +30,10 @@ OPENAPI_TAGS = [
     {
         "name": "Pagos Institucionales (Simulados)",
         "description": "Simulacion transaccional de pagos con control de excepciones.",
+    },
+    {
+        "name": "Autenticacion JWT",
+        "description": "Inicio de sesion, renovacion de tokens y perfil autenticado.",
     },
 ]
 
@@ -93,6 +98,7 @@ def create_app() -> FastAPI:
         }
 
     application.include_router(health_router, prefix=settings.api_v1_prefix)
+    application.include_router(auth_router, prefix=settings.api_v1_prefix)
     application.include_router(informacion_router, prefix=settings.api_v1_prefix)
     application.include_router(academico_router, prefix=settings.api_v1_prefix)
     application.include_router(pagos_router, prefix=settings.api_v1_prefix)

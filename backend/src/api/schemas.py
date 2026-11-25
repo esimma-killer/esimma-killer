@@ -238,3 +238,34 @@ class PagoResponse(BaseModel):
     referencia_bancaria: str
     fecha_creacion: str
     motivo_rechazo: str | None = None
+
+
+class LoginRequest(BaseModel):
+    """Credenciales institucionales para iniciar sesion."""
+
+    correo_institucional: str = Field(..., min_length=5, max_length=120)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    """Tokens emitidos despues de una autenticacion valida."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshTokenRequest(BaseModel):
+    """Solicitud para renovar un token de acceso."""
+
+    refresh_token: str = Field(..., min_length=20)
+
+
+class AuthUserResponse(BaseModel):
+    """Perfil minimo disponible despues de autenticar."""
+
+    id_usuario: str
+    correo_institucional: str
+    rol: str
+    activo: bool
+    id_campus: int | None = None

@@ -48,6 +48,16 @@ class Settings:
     mongo_uri: str = field(
         default_factory=lambda: os.getenv("MONGO_URI", "mongodb://localhost:27017/esimma_analytics")
     )
+    jwt_secret: str = field(
+        default_factory=lambda: os.getenv("JWT_SECRET", "e-siima-killer-development-only-secret")
+    )
+    jwt_algorithm: str = field(default_factory=lambda: os.getenv("JWT_ALGORITHM", "HS256"))
+    jwt_access_minutes: int = field(
+        default_factory=lambda: int(os.getenv("JWT_ACCESS_MINUTES", "30"))
+    )
+    jwt_refresh_days: int = field(
+        default_factory=lambda: int(os.getenv("JWT_REFRESH_DAYS", "7"))
+    )
 
     def obtener_info_shard(self, id_campus: int) -> dict[str, Any]:
         """Resuelve el metadato del nodo PostgreSQL correspondiente a la Shard Key id_campus."""
