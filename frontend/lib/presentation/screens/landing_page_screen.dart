@@ -501,37 +501,16 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Ventana 2 (Dedicada): Mapa Universitario a pantalla completa sin scroll de pagina ni footer
+  // Ventana 2 (Dedicada): Mapa Universitario estilo Google Maps ocupando 100% del area disponible
   Widget _buildDedicatedMapWindow({
     required ThemeData theme,
     required Color secondaryTextColor,
     required double horizontalPadding,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            10,
-            horizontalPadding,
-            8,
-          ),
-          child: _buildSecondaryWindowTopBar(
-            titulo: 'MAPA UNIVERSITARIO Y UBICADOR DE EDIFICIOS UAA',
-            subtitulo:
-                'Vista dedicada de gran tamano para localizar edificios, laboratorios, bibliotecas, auditorios y cajas en Campus Central y Sur.',
-            theme: theme,
-            secondaryTextColor: secondaryTextColor,
-          ),
-        ),
-        Expanded(
-          child: InteractiveCampusMapSection(
-            repository: widget.repository,
-            initialCampusId: _idCampusSeleccionado,
-          ),
-        ),
-      ],
+    return InteractiveCampusMapSection(
+      repository: widget.repository,
+      initialCampusId: _idCampusSeleccionado,
+      onBackToHome: () => _navegarASeccion(SeccionPortalUaa.inicio),
     );
   }
 
