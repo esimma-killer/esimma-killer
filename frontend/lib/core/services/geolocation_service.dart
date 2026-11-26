@@ -12,7 +12,6 @@ enum EstadoUbicacionMapaUaa {
   dentroDelCampus,
   fueraDelCampus,
   permisoDenegadoManual,
-  simulacionEnVivo,
 }
 
 // Entrada oficial sugerida cuando el usuario se encuentra fuera del poligono de la UAA

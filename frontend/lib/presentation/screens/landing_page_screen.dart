@@ -49,12 +49,115 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   // Controlador de scroll para volver arriba al cambiar de ventana
   final ScrollController _scrollController = ScrollController();
 
+  // Accesos disponibles para personalizar el menu rapido por el alumno
+  late List<String> _idsMenuRapido;
+
+  static const List<Map<String, Object?>> _catalogoMenuRapido =
+      <Map<String, Object?>>[
+        <String, Object?>{
+          'id': 'inicio',
+          'titulo': 'Inicio',
+          'icono': Icons.home_outlined,
+          'categoria': 'Landing page',
+          'seccion': SeccionPortalUaa.inicio,
+        },
+        <String, Object?>{
+          'id': 'mapa',
+          'titulo': 'Mapa Universitario',
+          'icono': Icons.map_outlined,
+          'categoria': 'Landing page',
+          'seccion': SeccionPortalUaa.mapaUniversitario,
+        },
+        <String, Object?>{
+          'id': 'servicios',
+          'titulo': 'Servicios y Horarios',
+          'icono': Icons.access_time_outlined,
+          'categoria': 'Landing page',
+          'seccion': SeccionPortalUaa.serviciosHorarios,
+        },
+        <String, Object?>{
+          'id': 'transporte',
+          'titulo': 'Transporte Universitario',
+          'icono': Icons.directions_bus_outlined,
+          'categoria': 'Landing page',
+          'seccion': SeccionPortalUaa.transporteUniversitario,
+        },
+        <String, Object?>{
+          'id': 'actividades',
+          'titulo': 'Actividades y Creditos',
+          'icono': Icons.workspace_premium_outlined,
+          'categoria': 'Landing page',
+          'seccion': SeccionPortalUaa.actividadesCreditos,
+        },
+        <String, Object?>{
+          'id': 'calendario',
+          'titulo': 'Calendario y Tramites',
+          'icono': Icons.calendar_month_outlined,
+          'categoria': 'Landing page',
+          'seccion': SeccionPortalUaa.calendarioDirectorio,
+        },
+        <String, Object?>{
+          'id': 'esiima_inscripcion',
+          'titulo': 'Inscripcion de Materias',
+          'icono': Icons.assignment_outlined,
+          'categoria': 'E-SIIMA',
+        },
+        <String, Object?>{
+          'id': 'esiima_horario',
+          'titulo': 'Horario de Clases',
+          'icono': Icons.schedule_outlined,
+          'categoria': 'E-SIIMA',
+        },
+        <String, Object?>{
+          'id': 'esiima_kardex',
+          'titulo': 'Calificaciones / Kardex',
+          'icono': Icons.grade_outlined,
+          'categoria': 'E-SIIMA',
+        },
+        <String, Object?>{
+          'id': 'esiima_adeudos',
+          'titulo': 'Adeudos y Pagos',
+          'icono': Icons.payments_outlined,
+          'categoria': 'E-SIIMA',
+        },
+        <String, Object?>{
+          'id': 'aula_tareas',
+          'titulo': 'Entrega de Tareas',
+          'icono': Icons.assignment_turned_in_outlined,
+          'categoria': 'Aula Virtual',
+        },
+        <String, Object?>{
+          'id': 'aula_material',
+          'titulo': 'Material de Clases',
+          'icono': Icons.folder_open_outlined,
+          'categoria': 'Aula Virtual',
+        },
+        <String, Object?>{
+          'id': 'aula_calificaciones',
+          'titulo': 'Calificaciones de Aula',
+          'icono': Icons.fact_check_outlined,
+          'categoria': 'Aula Virtual',
+        },
+        <String, Object?>{
+          'id': 'aula_avisos',
+          'titulo': 'Avisos de Materias',
+          'icono': Icons.campaign_outlined,
+          'categoria': 'Aula Virtual',
+        },
+      ];
+
   @override
   void initState() {
     super.initState();
     _perfilesDisponibles = widget.repository.obtenerPerfilesPrueba();
     _sesionActiva = _perfilesDisponibles.first;
     _idCampusSeleccionado = _sesionActiva.idCampusOrigen;
+    _idsMenuRapido = <String>[
+      'aula_tareas',
+      'mapa',
+      'esiima_inscripcion',
+      'servicios',
+    ];
   }
 
   @override
@@ -900,48 +1003,204 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Boton menu rapido ordenado por prioridad: Entrega de Tareas, Mapa, Transporte, Servicios y Horarios, y el resto
+  // Busca una accion del catalogo del menu rapido por su identificador
+  Map<String, Object?>? _buscarAccionMenuRapido(String id) {
+    for (final Map<String, Object?> accion in _catalogoMenuRapido) {
+      if (accion['id'] == id) {
+        return accion;
+      }
+    }
+    return null;
+  }
+
+  // Abre el dialogo para que el alumno elija las acciones de su menu rapido
+  Future<void> _abrirPersonalizacionMenuRapido() async {
+    final List<String> seleccion = List<String>.from(_idsMenuRapido);
+    final List<String>? resultado = await showDialog<List<String>>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            Widget grupo(String titulo, String categoria) {
+              final List<Map<String, Object?>> opciones = _catalogoMenuRapido
+                  .where(
+                    (Map<String, Object?> accion) =>
+                        accion['categoria'] == categoria,
+                  )
+                  .toList();
+              if (opciones.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 4),
+                    child: Text(
+                      titulo,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryNavy,
+                      ),
+                    ),
+                  ),
+                  ...opciones.map((Map<String, Object?> accion) {
+                    final String id = accion['id']! as String;
+                    return CheckboxListTile(
+                      value: seleccion.contains(id),
+                      onChanged: (bool? valor) {
+                        setModalState(() {
+                          if (valor == true) {
+                            if (!seleccion.contains(id)) {
+                              seleccion.add(id);
+                            }
+                          } else {
+                            seleccion.remove(id);
+                          }
+                        });
+                      },
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Row(
+                        children: <Widget>[
+                          Icon(accion['icono']! as IconData, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(accion['titulo']! as String)),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Personalizar menu rapido'),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Elige las acciones que quieres tener a la mano. Las secciones generales siguen disponibles en el menu de navegacion y los modulos E-SIIMA/Aula se abren desde los botones superiores.',
+                        style: TextStyle(fontSize: 12.5),
+                      ),
+                      grupo('LANDING PAGE', 'Landing page'),
+                      grupo('E-SIIMA', 'E-SIIMA'),
+                      grupo('AULA VIRTUAL', 'Aula Virtual'),
+                      if (seleccion.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Selecciona al menos una opcion.',
+                            style: TextStyle(
+                              color: AppColors.accentCrimson,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: seleccion.isEmpty
+                      ? null
+                      : () =>
+                            Navigator.of(dialogContext)
+                                .pop(List<String>.from(seleccion)),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (resultado == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _idsMenuRapido = resultado;
+    });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Menu rapido actualizado.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // Construye el menu rapido con las acciones seleccionadas por el alumno
   Widget _buildQuickMenuButton(bool isMobile) {
+    final List<Map<String, Object?>> acciones = _catalogoMenuRapido
+        .where(
+          (Map<String, Object?> accion) =>
+              _idsMenuRapido.contains(accion['id']),
+        )
+        .toList();
+
     return PopupMenuButton<String>(
       tooltip: 'Menu Rapido',
-      onSelected: (String value) {
-        if (value == 'MAPA') {
-          _navegarASeccion(SeccionPortalUaa.mapaUniversitario);
-        } else if (value == 'TRANSPORTE') {
-          _navegarASeccion(SeccionPortalUaa.transporteUniversitario);
-        } else if (value == 'SERVICIOS') {
-          _navegarASeccion(SeccionPortalUaa.serviciosHorarios);
-        } else if (value == 'CREDITOS') {
-          _navegarASeccion(SeccionPortalUaa.actividadesCreditos);
-        } else if (value == 'CALENDARIO') {
-          _navegarASeccion(SeccionPortalUaa.calendarioDirectorio);
+      onSelected: (String id) {
+        if (id == 'personalizar_menu') {
+          _abrirPersonalizacionMenuRapido();
+          return;
+        }
+        final Map<String, Object?>? accion = _buscarAccionMenuRapido(id);
+        if (accion == null) {
+          return;
+        }
+        final SeccionPortalUaa? seccion =
+            accion['seccion'] as SeccionPortalUaa?;
+        if (seccion != null) {
+          _navegarASeccion(seccion);
         } else {
-          _mostrarAvisoAcceso(value);
+          _mostrarAvisoAcceso(accion['titulo']! as String);
         }
       },
-      itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
-        PopupMenuItem<String>(
-          value: 'Entrega de Tareas (Aula Virtual)',
-          child: Text('Entrega de Tareas'),
-        ),
-        PopupMenuItem<String>(value: 'MAPA', child: Text('Mapa Universitario')),
-        PopupMenuItem<String>(value: 'TRANSPORTE', child: Text('Transporte')),
-        PopupMenuItem<String>(
-          value: 'SERVICIOS',
-          child: Text('Servicios y Horarios'),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'Inscripcion de Materias',
-          child: Text('Inscripcion de Materias (E-SIIMA)'),
-        ),
-        PopupMenuItem<String>(
-          value: 'CREDITOS',
-          child: Text('Actividades y Creditos Humanisticos'),
-        ),
-        PopupMenuItem<String>(
-          value: 'CALENDARIO',
-          child: Text('Calendario, Centros y Guia de Tramites FAQ'),
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        if (acciones.isEmpty)
+          const PopupMenuItem<String>(
+            enabled: false,
+            child: Text('Sin accesos configurados'),
+          )
+        else
+          ...acciones.map(
+            (Map<String, Object?> accion) => PopupMenuItem<String>(
+              value: accion['id']! as String,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(accion['icono']! as IconData, size: 18),
+                  const SizedBox(width: 10),
+                  Text(accion['titulo']! as String),
+                ],
+              ),
+            ),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'personalizar_menu',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.tune, size: 18),
+              SizedBox(width: 10),
+              Text('Personalizar menu rapido'),
+            ],
+          ),
         ),
       ],
       child: Container(

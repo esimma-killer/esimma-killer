@@ -3,6 +3,7 @@ import 'package:esimma_frontend/data/repositories/portal_repository.dart';
 import 'package:esimma_frontend/domain/entities/portal_models.dart';
 import 'package:esimma_frontend/main.dart';
 import 'package:esimma_frontend/presentation/widgets/interactive_campus_map_section.dart';
+import 'package:esimma_frontend/presentation/widgets/university_activities_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -209,7 +210,37 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.byType(InteractiveCampusMapSection), findsOneWidget);
+      expect(find.text('Simular avance en ruta'), findsNothing);
+      expect(find.text('Probar GPS con clic'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Muestra filtro desplegable de actividades en celular', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: UniversityActivitiesSection(
+              todasLasActividades: const PortalRepository()
+                  .obtenerActividades(),
+              onInscribirseActividad: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

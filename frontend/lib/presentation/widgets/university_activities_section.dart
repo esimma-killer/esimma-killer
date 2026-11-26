@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/portal_models.dart';
 import 'hover_animated_card.dart';
@@ -36,38 +37,74 @@ class _UniversityActivitiesSectionState
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final Color secondaryTextColor =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final Color secondaryTextColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     final List<ActividadUniversitaria> filtradas =
         _categoriaSeleccionada == 'Todas'
-            ? widget.todasLasActividades
-            : widget.todasLasActividades
-                .where(
-                  (ActividadUniversitaria a) =>
-                      a.categoria == _categoriaSeleccionada,
-                )
-                .toList();
+        ? widget.todasLasActividades
+        : widget.todasLasActividades
+              .where(
+                (ActividadUniversitaria a) =>
+                    a.categoria == _categoriaSeleccionada,
+              )
+              .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: _categorias.map((String cat) {
-            final bool seleccionada = _categoriaSeleccionada == cat;
-            return ChoiceChip(
-              label: Text(cat),
-              selected: seleccionada,
-              onSelected: (_) {
-                setState(() {
-                  _categoriaSeleccionada = cat;
-                });
-              },
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final bool esCelular = constraints.maxWidth < 700;
+            if (esCelular) {
+              return DropdownButtonFormField<String>(
+                initialValue: _categoriaSeleccionada,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Filtrar actividades',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+                items: _categorias
+                    .map(
+                      (String cat) => DropdownMenuItem<String>(
+                        value: cat,
+                        child: Text(cat),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (String? cat) {
+                  if (cat == null) {
+                    return;
+                  }
+                  setState(() {
+                    _categoriaSeleccionada = cat;
+                  });
+                },
+              );
+            }
+            return Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: _categorias.map((String cat) {
+                final bool seleccionada = _categoriaSeleccionada == cat;
+                return ChoiceChip(
+                  label: Text(cat),
+                  selected: seleccionada,
+                  onSelected: (_) {
+                    setState(() {
+                      _categoriaSeleccionada = cat;
+                    });
+                  },
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         ),
         const SizedBox(height: 18),
         AnimatedSwitcher(
@@ -110,13 +147,13 @@ class _UniversityActivitiesSectionState
     bool isDark,
     Color secondaryTextColor,
   ) {
-    final bool esCreditoHumanistico =
-        act.categoria == 'Formacion Humanistica';
+    final bool esCreditoHumanistico = act.categoria == 'Formacion Humanistica';
 
     return HoverAnimatedCard(
       padding: const EdgeInsets.all(18),
-      activeBorderColor:
-          esCreditoHumanistico ? AppColors.accentCrimson : AppColors.secondaryBlue,
+      activeBorderColor: esCreditoHumanistico
+          ? AppColors.accentCrimson
+          : AppColors.secondaryBlue,
       onTap: () => widget.onInscribirseActividad(act.titulo),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,10 +163,7 @@ class _UniversityActivitiesSectionState
             runSpacing: 6,
             children: <Widget>[
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: esCreditoHumanistico
                       ? AppColors.accentCrimson
@@ -146,10 +180,7 @@ class _UniversityActivitiesSectionState
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isDark
                       ? AppColors.darkSurfaceMuted
@@ -180,11 +211,7 @@ class _UniversityActivitiesSectionState
           const SizedBox(height: 12),
           Row(
             children: <Widget>[
-              Icon(
-                Icons.event_outlined,
-                size: 15,
-                color: secondaryTextColor,
-              ),
+              Icon(Icons.event_outlined, size: 15, color: secondaryTextColor),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -218,11 +245,7 @@ class _UniversityActivitiesSectionState
           const SizedBox(height: 4),
           Row(
             children: <Widget>[
-              Icon(
-                Icons.info_outline,
-                size: 15,
-                color: secondaryTextColor,
-              ),
+              Icon(Icons.info_outline, size: 15, color: secondaryTextColor),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(

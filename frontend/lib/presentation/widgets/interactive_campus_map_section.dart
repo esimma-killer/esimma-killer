@@ -46,16 +46,13 @@ class _InteractiveCampusMapSectionState
   // Estado de geolocalizacion automatica en tiempo real y recorte progresivo de ruta
   final GeolocationServiceUaa _geolocationService = GeolocationServiceUaa();
   StreamSubscription<LecturaGpsUsuario>? _gpsSubscription;
-  Timer? _timerSimulacionCaminata;
   EstadoUbicacionMapaUaa _estadoUbicacion =
       EstadoUbicacionMapaUaa.buscandoPermiso;
-  String _mensajeEstadoUbicacion =
-      'Detectando tu ubicacion actual automaticamente...';
+  String _mensajeEstadoUbicacion = 'Detectando ubicacion...';
   double _distanciaFueraCampusMetros = 0.0;
   double _progresoRecorridoUsuario = 0.0;
   PuntoMapaUaa? _posicionUsuarioEnVivo;
   bool _ocultarBannerUbicacion = false;
-  bool _modoMoverGpsConClic = false;
   LecturaGpsUsuario? _ultimaLecturaGps;
   DateTime? _tiempoUltimaLecturaGps;
 
@@ -94,7 +91,6 @@ class _InteractiveCampusMapSectionState
 
   @override
   void dispose() {
-    _timerSimulacionCaminata?.cancel();
     _gpsSubscription?.cancel();
     _geolocationService.detenerSeguimiento();
     _pictureBase?.dispose();
@@ -107,15 +103,13 @@ class _InteractiveCampusMapSectionState
 
   // Inicia automaticamente la escucha de GPS en tiempo real y maneja los 3 escenarios (Dentro, Fuera o Manual)
   void _iniciarDeteccionUbicacionAutomatica() {
-    _timerSimulacionCaminata?.cancel();
     _gpsSubscription?.cancel();
     _ultimaLecturaGps = null;
     _tiempoUltimaLecturaGps = null;
 
     setState(() {
       _estadoUbicacion = EstadoUbicacionMapaUaa.buscandoPermiso;
-      _mensajeEstadoUbicacion =
-          'Detectando tu ubicacion actual en tiempo real...';
+      _mensajeEstadoUbicacion = 'Detectando ubicacion...';
       _ocultarBannerUbicacion = false;
     });
 
@@ -127,7 +121,7 @@ class _InteractiveCampusMapSectionState
             }
             setState(() {
               _estadoUbicacion = EstadoUbicacionMapaUaa.permisoDenegadoManual;
-              _mensajeEstadoUbicacion = 'Modo manual activo: selecciona tu punto de partida y edificio de destino.';
+              _mensajeEstadoUbicacion = 'Modo manual activo';
               _progresoRecorridoUsuario = 0.0;
               _posicionUsuarioEnVivo = null;
             });
@@ -147,8 +141,7 @@ class _InteractiveCampusMapSectionState
         }
         setState(() {
           _estadoUbicacion = EstadoUbicacionMapaUaa.permisoDenegadoManual;
-          _mensajeEstadoUbicacion =
-              'GPS no disponible. Usa el modo manual para trazar tu ruta.';
+          _mensajeEstadoUbicacion = 'GPS no disponible. Modo manual.';
           _progresoRecorridoUsuario = 0.0;
           _posicionUsuarioEnVivo = null;
         });
@@ -158,10 +151,6 @@ class _InteractiveCampusMapSectionState
 
   // Procesa cada coordenada GPS recibida del dispositivo: detecta si esta dentro o fuera de la UAA y recorta el camino
   void _procesarLecturaGpsEnTiempoReal(LecturaGpsUsuario lectura) {
-    if (_estadoUbicacion == EstadoUbicacionMapaUaa.simulacionEnVivo) {
-      return;
-    }
-
     final DateTime ahora = DateTime.now();
     final LecturaGpsUsuario? anterior = _ultimaLecturaGps;
     final DateTime? tiempoAnterior = _tiempoUltimaLecturaGps;
@@ -208,8 +197,7 @@ class _InteractiveCampusMapSectionState
         final String kmTexto = (_distanciaFueraCampusMetros / 1000.0)
             .clamp(0.1, 999.0)
             .toStringAsFixed(1);
-        _mensajeEstadoUbicacion =
-            'Ubicacion fuera de la UAA ($kmTexto km) • Entrada sugerida (Principal primero):';
+        _mensajeEstadoUbicacion = 'Fuera de la UAA ($kmTexto km)';
       });
       return;
     }
@@ -234,7 +222,7 @@ class _InteractiveCampusMapSectionState
         _idNodoOrigen = nuevoOrigenId;
         _posicionUsuarioEnVivo = PuntoMapaUaa(proyeccion.posX, proyeccion.posY);
         _progresoRecorridoUsuario = 0.0;
-        _mensajeEstadoUbicacion = 'Ubicacion GPS en tiempo real dentro de la UAA • El camino se va recortando conforme avanzas.';
+        _mensajeEstadoUbicacion = 'Dentro de la UAA';
       });
       return;
     }
@@ -243,7 +231,7 @@ class _InteractiveCampusMapSectionState
       _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
       _posicionUsuarioEnVivo = PuntoMapaUaa(proyeccion.posX, proyeccion.posY);
       _progresoRecorridoUsuario = proyRuta.progreso.clamp(0.0, 1.0);
-      _mensajeEstadoUbicacion = 'Ubicacion GPS en tiempo real dentro de la UAA • El camino se va recortando conforme avanzas.';
+      _mensajeEstadoUbicacion = 'Dentro de la UAA';
     });
   }
 
@@ -359,63 +347,6 @@ class _InteractiveCampusMapSectionState
     return masCercano?.idNodo ?? _idNodoOrigen;
   }
 
-  // Permite probar el GPS en tiempo real haciendo clic en cualquier pasillo, area verde o calle exterior de la UAA
-  void _moverGpsSimuladoACoordenadaLocal(Offset localPosition) {
-    if (_ultimoImgW <= 0 || _ultimoImgH <= 0) {
-      return;
-    }
-    final double nx = ((localPosition.dx - _ultimoOffsetX) / _ultimoImgW).clamp(
-      0.02,
-      0.98,
-    );
-    final double ny = ((localPosition.dy - _ultimoOffsetY) / _ultimoImgH).clamp(
-      0.02,
-      0.98,
-    );
-
-    _timerSimulacionCaminata?.cancel();
-
-    final bool enCalleExterior = _esCalleExteriorAlrededorDeUaa(
-      nx,
-      ny,
-      _idCampusMapa,
-    );
-
-    final RutaPeatonalUaa rutaActual = _obtenerRutaActiva();
-
-    final _ResultadoProyeccionPolilinea proy = _proyectarPuntoSobreRuta(
-      ruta: rutaActual,
-      userX: nx,
-      userY: ny,
-    );
-
-    // Si hizo clic en una calle exterior, area verde o punto alejado del trazo actual, reencamina desde esa posicion
-    if (enCalleExterior || proy.distanciaNormalizada > 0.032) {
-      final String nuevoOrigenId = _seleccionarOrigenParaCoordenadaEnMapa(
-        nx,
-        ny,
-      );
-      setState(() {
-        _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
-        _idNodoOrigen = nuevoOrigenId;
-        _posicionUsuarioEnVivo = PuntoMapaUaa(nx, ny);
-        _progresoRecorridoUsuario = 0.0;
-        _mensajeEstadoUbicacion = enCalleExterior
-            ? 'Ubicacion en calle exterior de la UAA • Trazando ruta desde tu posicion hacia el acceso mas cercano.'
-            : 'Ubicacion en campus / area verde • Trazando camino continuo desde tu posicion hasta el destino.';
-      });
-      return;
-    }
-
-    setState(() {
-      _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
-      _posicionUsuarioEnVivo = proy.puntoProyectado;
-      _progresoRecorridoUsuario = proy.progreso.clamp(0.0, 1.0);
-      _mensajeEstadoUbicacion =
-          'Avance GPS en ruta (${(_progresoRecorridoUsuario * 100).round()}% recorrido) • Haz clic mas adelante sobre la linea azul para avanzar.';
-    });
-  }
-
   // Proyecta la posicion en vivo del usuario sobre los segmentos del camino para recortar el tramo ya recorrido
   _ResultadoProyeccionPolilinea _proyectarPuntoSobreRuta({
     required RutaPeatonalUaa ruta,
@@ -488,104 +419,6 @@ class _InteractiveCampusMapSectionState
       distanciaNormalizada: mejorDist,
       puntoProyectado: mejorPunto,
     );
-  }
-
-  // Permite demostrar en vivo como el camino se va borrando/recortando conforme avanza la ubicacion del usuario
-  void _alternarSimulacionAvanceEnVivo(RutaPeatonalUaa rutaActiva) {
-    if (_timerSimulacionCaminata != null &&
-        _timerSimulacionCaminata!.isActive) {
-      _timerSimulacionCaminata?.cancel();
-      setState(() {
-        _progresoRecorridoUsuario = 0.0;
-        _posicionUsuarioEnVivo = null;
-        _estadoUbicacion = EstadoUbicacionMapaUaa.fueraDelCampus;
-      });
-      return;
-    }
-
-    _enfocarRutaEnCamara(rutaActiva);
-    setState(() {
-      _estadoUbicacion = EstadoUbicacionMapaUaa.simulacionEnVivo;
-      _progresoRecorridoUsuario = 0.02;
-      _posicionUsuarioEnVivo = _interpolarPuntoEnRuta(rutaActiva, 0.02);
-      _mensajeEstadoUbicacion = 'Avance GPS en tiempo real activo • Observa como el camino se va recortando conforme avanzas.';
-    });
-
-    _timerSimulacionCaminata = Timer.periodic(const Duration(milliseconds: 250), (
-      Timer timer,
-    ) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      final RutaPeatonalUaa rutaActual = _obtenerRutaActiva();
-      final double siguiente = _progresoRecorridoUsuario + 0.03;
-      if (siguiente >= 1.0) {
-        timer.cancel();
-        setState(() {
-          _progresoRecorridoUsuario = 1.0;
-          _posicionUsuarioEnVivo = PuntoMapaUaa(
-            rutaActual.destino.posX,
-            rutaActual.destino.posY,
-          );
-          _mensajeEstadoUbicacion =
-              'Has llegado a tu destino: ${rutaActual.destino.codigo} (${rutaActual.destino.nombre}).';
-        });
-        Future<void>.delayed(const Duration(seconds: 2), () {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _progresoRecorridoUsuario = 0.0;
-            _posicionUsuarioEnVivo = null;
-          });
-        });
-      } else {
-        setState(() {
-          _progresoRecorridoUsuario = siguiente;
-          _posicionUsuarioEnVivo = _interpolarPuntoEnRuta(
-            rutaActual,
-            siguiente,
-          );
-        });
-      }
-    });
-  }
-
-  // Obtiene la coordenada normalizada exacta (posX, posY) para un porcentaje de avance (0.0 a 1.0) sobre la ruta
-  PuntoMapaUaa _interpolarPuntoEnRuta(RutaPeatonalUaa ruta, double progreso) {
-    final List<NodoPasilloUaa> pts = ruta.puntosTrayecto;
-    if (pts.isEmpty) {
-      return PuntoMapaUaa(ruta.origen.posX, ruta.origen.posY);
-    }
-    if (pts.length == 1) {
-      return PuntoMapaUaa(pts.first.posX, pts.first.posY);
-    }
-
-    double total = 0.0;
-    final List<double> lens = <double>[];
-    for (int i = 0; i < pts.length - 1; i++) {
-      final double d = math.sqrt(
-        math.pow(pts[i + 1].posX - pts[i].posX, 2) +
-            math.pow(pts[i + 1].posY - pts[i].posY, 2),
-      );
-      lens.add(d);
-      total += d;
-    }
-
-    final double target = total * progreso.clamp(0.0, 1.0);
-    double acum = 0.0;
-    for (int i = 0; i < pts.length - 1; i++) {
-      if (acum + lens[i] >= target && lens[i] > 1e-9) {
-        final double t = ((target - acum) / lens[i]).clamp(0.0, 1.0);
-        return PuntoMapaUaa(
-          pts[i].posX + (pts[i + 1].posX - pts[i].posX) * t,
-          pts[i].posY + (pts[i + 1].posY - pts[i].posY) * t,
-        );
-      }
-      acum += lens[i];
-    }
-    return PuntoMapaUaa(pts.last.posX, pts.last.posY);
   }
 
   // Configura el punto de partida (Acceso Principal) y un edificio destino inicial por campus
@@ -715,14 +548,9 @@ class _InteractiveCampusMapSectionState
     EdificioMapaUaa edificio, {
     bool enfocarCamara = true,
   }) {
-    _timerSimulacionCaminata?.cancel();
     setState(() {
       _idNodoDestino = edificio.idNodo;
       _progresoRecorridoUsuario = 0.0;
-      if (_estadoUbicacion == EstadoUbicacionMapaUaa.simulacionEnVivo) {
-        _estadoUbicacion = EstadoUbicacionMapaUaa.fueraDelCampus;
-        _posicionUsuarioEnVivo = null;
-      }
       if (_estadoUbicacion == EstadoUbicacionMapaUaa.fueraDelCampus) {
         final List<EntradaSugeridaUaa> entradas =
             GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
@@ -1510,8 +1338,8 @@ class _InteractiveCampusMapSectionState
     final Widget? locationBanner = _ocultarBannerUbicacion
         ? null
         : _buildBannerUbicacionYEntradasSugeridas(
+            isMobile: isMobile,
             isDark: isDark,
-            rutaActiva: rutaActiva,
           );
 
     if (isMobile) {
@@ -1565,21 +1393,157 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Barra informativa de ubicacion GPS en tiempo real, entradas sugeridas cuando esta fuera de la UAA y simulacion de avance
+  // Barra informativa de ubicacion GPS y seleccion de entrada cuando el usuario esta fuera de la UAA
   Widget _buildBannerUbicacionYEntradasSugeridas({
+    required bool isMobile,
     required bool isDark,
-    required RutaPeatonalUaa rutaActiva,
   }) {
     final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
     final Color borderCol = isDark
         ? AppColors.darkBorder
         : const Color(0xFFDADCE0);
-    final bool simulando =
-        _estadoUbicacion == EstadoUbicacionMapaUaa.simulacionEnVivo;
     final bool fueraDeUaa =
         _estadoUbicacion == EstadoUbicacionMapaUaa.fueraDelCampus;
+    final bool mostrarEntradas =
+        fueraDeUaa ||
+        _estadoUbicacion == EstadoUbicacionMapaUaa.permisoDenegadoManual;
     final List<EntradaSugeridaUaa> entradas =
         GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
+    final EntradaSugeridaUaa entradaActual = entradas.firstWhere(
+      (EntradaSugeridaUaa entrada) => entrada.idNodoEdificio == _idNodoOrigen,
+      orElse: () => entradas.first,
+    );
+    final IconData icono = fueraDeUaa
+        ? Icons.near_me_outlined
+        : (_estadoUbicacion == EstadoUbicacionMapaUaa.dentroDelCampus
+              ? Icons.gps_fixed
+              : Icons.edit_location_alt_outlined);
+    final Color colorIcono = fueraDeUaa
+        ? AppColors.accentCrimson
+        : AppColors.secondaryBlue;
+    final TextStyle estiloTexto = TextStyle(
+      fontSize: 11.2,
+      fontWeight: FontWeight.w700,
+      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E293B),
+    );
+
+    void seleccionarEntrada(String id) {
+      setState(() {
+        _idNodoOrigen = id;
+        _progresoRecorridoUsuario = 0.0;
+        _posicionUsuarioEnVivo = null;
+      });
+    }
+
+    Widget botonCerrar() {
+      return InkWell(
+        onTap: () {
+          setState(() {
+            _ocultarBannerUbicacion = true;
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(
+            Icons.close,
+            size: 16,
+            color: isDark ? Colors.white54 : const Color(0xFF64748B),
+          ),
+        ),
+      );
+    }
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: cardBg.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderCol),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(icono, size: 15, color: colorIcono),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _mensajeEstadoUbicacion,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: estiloTexto,
+              ),
+            ),
+            if (mostrarEntradas) ...<Widget>[
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 145),
+                child: PopupMenuButton<String>(
+                  tooltip: 'Seleccionar entrada',
+                  onSelected: seleccionarEntrada,
+                  itemBuilder: (BuildContext context) => entradas
+                      .map(
+                        (EntradaSugeridaUaa entrada) => PopupMenuItem<String>(
+                          value: entrada.idNodoEdificio,
+                          child: Text(entrada.nombreCorto),
+                        ),
+                      )
+                      .toList(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: borderCol),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          Icons.login,
+                          size: 13,
+                          color: isDark
+                              ? Colors.white70
+                              : const Color(0xFF334155),
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            entradaActual.nombreCorto,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF334155),
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          size: 16,
+                          color: isDark
+                              ? Colors.white70
+                              : const Color(0xFF334155),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 2),
+            botonCerrar(),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1593,44 +1557,14 @@ class _InteractiveCampusMapSectionState
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: <Widget>[
-          Icon(
-            fueraDeUaa
-                ? Icons.near_me_outlined
-                : (simulando ||
-                          _estadoUbicacion ==
-                              EstadoUbicacionMapaUaa.dentroDelCampus
-                      ? Icons.gps_fixed
-                      : Icons.edit_location_alt_outlined),
-            size: 15,
-            color: fueraDeUaa
-                ? AppColors.accentCrimson
-                : AppColors.secondaryBlue,
-          ),
-          Text(
-            _mensajeEstadoUbicacion,
-            style: TextStyle(
-              fontSize: 11.2,
-              fontWeight: FontWeight.w700,
-              color: isDark
-                  ? AppColors.darkTextPrimary
-                  : const Color(0xFF1E293B),
-            ),
-          ),
-          if (fueraDeUaa ||
-              _estadoUbicacion ==
-                  EstadoUbicacionMapaUaa.permisoDenegadoManual) ...<Widget>[
-            ...entradas.map((EntradaSugeridaUaa ent) {
-              final bool seleccionada = _idNodoOrigen == ent.idNodoEdificio;
+          Icon(icono, size: 15, color: colorIcono),
+          Text(_mensajeEstadoUbicacion, style: estiloTexto),
+          if (mostrarEntradas)
+            ...entradas.map((EntradaSugeridaUaa entrada) {
+              final bool seleccionada = _idNodoOrigen == entrada.idNodoEdificio;
               return InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  _timerSimulacionCaminata?.cancel();
-                  setState(() {
-                    _idNodoOrigen = ent.idNodoEdificio;
-                    _progresoRecorridoUsuario = 0.0;
-                    _posicionUsuarioEnVivo = null;
-                  });
-                },
+                onTap: () => seleccionarEntrada(entrada.idNodoEdificio),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1648,7 +1582,7 @@ class _InteractiveCampusMapSectionState
                     ),
                   ),
                   child: Text(
-                    ent.nombreCorto,
+                    entrada.nombreCorto,
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
@@ -1660,112 +1594,7 @@ class _InteractiveCampusMapSectionState
                 ),
               );
             }),
-          ],
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _alternarSimulacionAvanceEnVivo(rutaActiva),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: simulando
-                    ? AppColors.accentCrimson
-                    : AppColors.secondaryBlue,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    simulando
-                        ? Icons.stop_circle_outlined
-                        : Icons.directions_run,
-                    size: 13,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    simulando ? 'Detener avance' : 'Simular avance en ruta',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              _timerSimulacionCaminata?.cancel();
-              setState(() {
-                _modoMoverGpsConClic = !_modoMoverGpsConClic;
-                if (_modoMoverGpsConClic) {
-                  _mensajeEstadoUbicacion = 'Modo prueba GPS activo: haz clic en cualquier punto o pasillo del mapa para colocar tu GPS ahi.';
-                } else {
-                  _progresoRecorridoUsuario = 0.0;
-                  _posicionUsuarioEnVivo = null;
-                }
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: _modoMoverGpsConClic
-                    ? const Color(0xFF0F766E)
-                    : (isDark
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFE2E8F0)),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _modoMoverGpsConClic
-                      ? const Color(0xFF14B8A6)
-                      : borderCol,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    Icons.touch_app_outlined,
-                    size: 13,
-                    color: _modoMoverGpsConClic
-                        ? Colors.white
-                        : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _modoMoverGpsConClic
-                        ? 'Salir de GPS con clic'
-                        : 'Probar GPS con clic',
-                    style: TextStyle(
-                      color: _modoMoverGpsConClic
-                          ? Colors.white
-                          : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: () {
-              setState(() {
-                _ocultarBannerUbicacion = true;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Icon(
-                Icons.close,
-                size: 15,
-                color: isDark ? Colors.white54 : const Color(0xFF64748B),
-              ),
-            ),
-          ),
+          botonCerrar(),
         ],
       ),
     );
@@ -2576,10 +2405,6 @@ class _InteractiveCampusMapSectionState
                 });
                 _searchFocusNode.unfocus();
               }
-              if (_modoMoverGpsConClic) {
-                _moverGpsSimuladoACoordenadaLocal(details.localPosition);
-                return;
-              }
               final EdificioMapaUaa? edificioTocado =
                   _detectarEdificioEnCoordenada(
                     details.localPosition,
@@ -2645,78 +2470,46 @@ class _InteractiveCampusMapSectionState
                     );
                   },
                 ),
-                // Oculta el label flotante cuando hay ubicacion en vivo para no tapar el mapa (solo muestra el punto azul)
+                // Punto blanco para el origen y marcador rojo para el destino
                 if (_posicionUsuarioEnVivo == null)
-                  _buildEndpointPin(
-                    posX: offsetX + rutaActiva.origen.posX * imgW,
-                    posY: offsetY + rutaActiva.origen.posY * imgH,
-                    maxW: availW,
-                    maxH: availH,
-                    colorFondo: AppColors.secondaryBlue,
-                    icono: Icons.my_location,
-                    etiqueta: 'ORIGEN: ${rutaActiva.origen.codigo}',
+                  Positioned(
+                    left: offsetX + rutaActiva.origen.posX * imgW - 8,
+                    top: offsetY + rutaActiva.origen.posY * imgH - 8,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.secondaryBlue,
+                            width: 2.5,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo)
-                  _buildEndpointPin(
-                    posX: offsetX + rutaActiva.destino.posX * imgW,
-                    posY: offsetY + rutaActiva.destino.posY * imgH,
-                    maxW: availW,
-                    maxH: availH,
-                    colorFondo: AppColors.accentCrimson,
-                    icono: Icons.flag,
-                    etiqueta: 'DESTINO: ${rutaActiva.destino.codigo}',
+                  Positioned(
+                    left: offsetX + rutaActiva.destino.posX * imgW - 14,
+                    top: offsetY + rutaActiva.destino.posY * imgH - 28,
+                    child: const IgnorePointer(
+                      child: Icon(
+                        Icons.location_on,
+                        size: 28,
+                        color: AppColors.accentCrimson,
+                        shadows: <Shadow>[
+                          Shadow(color: Colors.white, blurRadius: 3),
+                        ],
+                      ),
+                    ),
                   ),
               ],
             ),
           ),
         );
       },
-    );
-  }
-
-  // Marcador flotante de Origen o Destino sobre la coordenada exacta del edificio
-  Widget _buildEndpointPin({
-    required double posX,
-    required double posY,
-    required double maxW,
-    required double maxH,
-    required Color colorFondo,
-    required IconData icono,
-    required String etiqueta,
-  }) {
-    final double left = (posX - 62).clamp(6.0, math.max(8.0, maxW - 148.0));
-    final double top = (posY - 36).clamp(6.0, math.max(8.0, maxH - 42.0));
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      left: left,
-      top: top,
-      child: IgnorePointer(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            color: colorFondo,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(icono, color: Colors.white, size: 13),
-              const SizedBox(width: 4),
-              Text(
-                etiqueta,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
