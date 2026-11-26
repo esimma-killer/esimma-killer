@@ -2470,21 +2470,21 @@ class _InteractiveCampusMapSectionState
                     );
                   },
                 ),
-                // Punto blanco para el origen y marcador rojo para el destino
+                // Punto blanco minimalista para el origen y pin rojo para el destino
                 if (_posicionUsuarioEnVivo == null)
                   Positioned(
-                    left: offsetX + rutaActiva.origen.posX * imgW - 8,
-                    top: offsetY + rutaActiva.origen.posY * imgH - 8,
+                    left: offsetX + rutaActiva.origen.posX * imgW - 5,
+                    top: offsetY + rutaActiva.origen.posY * imgH - 5,
                     child: IgnorePointer(
                       child: Container(
-                        width: 16,
-                        height: 16,
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppColors.secondaryBlue,
-                            width: 2.5,
+                            color: const Color(0xFF1A73E8),
+                            width: 2,
                           ),
                         ),
                       ),
@@ -2492,15 +2492,15 @@ class _InteractiveCampusMapSectionState
                   ),
                 if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo)
                   Positioned(
-                    left: offsetX + rutaActiva.destino.posX * imgW - 14,
-                    top: offsetY + rutaActiva.destino.posY * imgH - 28,
+                    left: offsetX + rutaActiva.destino.posX * imgW - 10,
+                    top: offsetY + rutaActiva.destino.posY * imgH - 20,
                     child: const IgnorePointer(
                       child: Icon(
                         Icons.location_on,
-                        size: 28,
-                        color: AppColors.accentCrimson,
+                        size: 20,
+                        color: Color(0xFFEA4335),
                         shadows: <Shadow>[
-                          Shadow(color: Colors.white, blurRadius: 3),
+                          Shadow(color: Colors.white, blurRadius: 2.5),
                         ],
                       ),
                     ),
@@ -3794,15 +3794,15 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       final Paint bordeBlancoPaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 7.5
+        ..strokeWidth = 6.0
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       canvas.drawPath(rutaPath, bordeBlancoPaint);
 
       final Paint lineaRutaPaint = Paint()
-        ..color = AppColors.secondaryBlue
+        ..color = const Color(0xFF1A73E8)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.2
+        ..strokeWidth = 3.8
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       canvas.drawPath(rutaPath, lineaRutaPaint);
@@ -3811,19 +3811,6 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     final Paint puntoBlancoPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    final Paint puntoPasilloPaint = Paint()
-      ..color = AppColors.primaryNavy
-      ..style = PaintingStyle.fill;
-
-    // Solo dibuja los nodos intermedios que aun estan por delante del usuario
-    double distNodo = 0.0;
-    for (int i = 1; i < puntos.length - 1; i++) {
-      distNodo += longitudesSegmentos[i - 1];
-      if (distNodo > distanciaInicioRecorte + 2.0) {
-        canvas.drawCircle(puntos[i], 3.8, puntoBlancoPaint);
-        canvas.drawCircle(puntos[i], 2.3, puntoPasilloPaint);
-      }
-    }
 
     // Punto de ubicacion actual del usuario (estilo Google Maps con halo azul cuando esta avanzando)
     final Offset posMarcadorUsuario = posicionUsuarioEnVivo != null
@@ -3847,61 +3834,32 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         Paint()
           ..color = Colors.white
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 7.0
+          ..strokeWidth = 5.8
           ..strokeCap = StrokeCap.round,
       );
       canvas.drawPath(
         conectorPath,
         Paint()
-          ..color = AppColors.secondaryBlue
+          ..color = const Color(0xFF1A73E8)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.8
+          ..strokeWidth = 3.6
           ..strokeCap = StrokeCap.round,
       );
-
-      // Puntos guia sobre el tramo de aproximacion (area verde o calle exterior hacia el acceso/pasillo)
-      final double distConector =
-          (puntoInicioActivo - posMarcadorUsuario).distance;
-      final int pasos = (distConector / 16.0).floor();
-      for (int s = 1; s <= pasos; s++) {
-        final double t = s / (pasos + 1);
-        final Offset pt = Offset.lerp(
-          posMarcadorUsuario,
-          puntoInicioActivo,
-          t,
-        )!;
-        canvas.drawCircle(pt, 3.4, puntoBlancoPaint);
-        canvas.drawCircle(pt, 2.0, puntoPasilloPaint);
-      }
     }
 
     if (posicionUsuarioEnVivo != null || progresoRecorridoUsuario > 0.0) {
       canvas.drawCircle(
         posMarcadorUsuario,
-        14.5,
-        Paint()..color = const Color(0xFF1A73E8).withValues(alpha: 0.22),
+        10.0,
+        Paint()..color = const Color(0xFF1A73E8).withValues(alpha: 0.20),
       );
-      canvas.drawCircle(posMarcadorUsuario, 8.2, puntoBlancoPaint);
+      canvas.drawCircle(posMarcadorUsuario, 6.2, puntoBlancoPaint);
       canvas.drawCircle(
         posMarcadorUsuario,
-        5.8,
+        4.6,
         Paint()..color = const Color(0xFF1A73E8),
       );
-    } else {
-      canvas.drawCircle(puntos.first, 7.5, puntoBlancoPaint);
-      canvas.drawCircle(
-        puntos.first,
-        5.2,
-        Paint()..color = AppColors.secondaryBlue,
-      );
     }
-
-    canvas.drawCircle(puntos.last, 8.0, puntoBlancoPaint);
-    canvas.drawCircle(
-      puntos.last,
-      5.6,
-      Paint()..color = AppColors.accentCrimson,
-    );
   }
 
   @override
