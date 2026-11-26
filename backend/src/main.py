@@ -11,6 +11,7 @@ from src.api.routers import (
     pagos_router,
 )
 from src.core.config import get_settings
+from src.core.sharding import CampusShardMiddleware, ShardedPostgresPools, ShardingRouter
 from src.domain.exceptions import DominioError, RecursoNoEncontradoError
 
 OPENAPI_TAGS = [
@@ -50,6 +51,15 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
+    application.state.sharding_router = ShardingRouter(settings)
+    application.state.shard_pools = ShardedPostgresPools(settings)
+
+    @application.on_event("shutdown")
+    def close_shard_pools() -> None:
+        """Libera las conexiones PostgreSQL al apagar el proceso de la API."""
+        application.state.shard_pools.close()
+
+    application.add_middleware(CampusShardMiddleware)
 
     application.add_middleware(
         CORSMiddleware,
