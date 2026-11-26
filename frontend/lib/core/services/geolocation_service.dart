@@ -113,7 +113,7 @@ class GeolocationServiceUaa {
           idNodoEdificio: 'CEN-B-ACCESO_CCDC',
           nombreCorto: 'Acceso CCDC (Edif. 108)',
           vialidadReferencia:
-              'Av. Universidad (Ciencias del Diseno y Construccion 108)',
+              'Av. Universidad (Ciencias del Diseño y Construcción 108)',
           latitudReal: 21.9082,
           longitudReal: -102.3118,
           posX: 0.910,

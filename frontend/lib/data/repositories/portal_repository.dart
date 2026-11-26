@@ -856,7 +856,7 @@ class PortalRepository {
       ),
       CentroAcademicoUaa(
         siglas: 'CCDC',
-        nombre: 'Centro de Ciencias del Diseno y de la Construccion',
+        nombre: 'Centro de Ciencias del Diseño y de la Construcción',
         decanatoEdificio: 'Edificio 108 (Campus Central)',
         extensionTelefonica: 'Ext. 4200',
         idCampus: 1,

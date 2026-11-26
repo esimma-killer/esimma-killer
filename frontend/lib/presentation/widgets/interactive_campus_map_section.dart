@@ -12,6 +12,16 @@ import '../../data/repositories/campus_vector_layers.dart';
 import '../../data/repositories/portal_repository.dart';
 import '../../domain/entities/portal_models.dart';
 
+// Edificios con contorno recto propio para conservar sus formas reales
+const Set<String> _idsContornoRecto = <String>{
+  'CEN-B-6',
+  'CEN-B-6-A',
+  'CEN-B-8',
+  'CEN-B-8-A',
+  'CEN-B-40',
+  'CEN-B-42',
+};
+
 // Navegador interactivo a pantalla completa con estructura estilo Google Maps y vectorizacion 1:1 completa
 class InteractiveCampusMapSection extends StatefulWidget {
   final PortalRepository repository;
@@ -850,11 +860,7 @@ class _InteractiveCampusMapSectionState
         zon.contains('aulas') ||
         nom.contains('laboratorio') ||
         nom.contains('taller');
-    final bool cajas =
-        nom.contains('cajas') ||
-        nom.contains('control escolar') ||
-        nom.contains('finanzas') ||
-        nom.contains('servicios estudiantiles');
+    final bool cajas = cod == 'edif 1-a';
     final bool deportes =
         nom.contains('alberca') ||
         nom.contains('gimnasio') ||
@@ -2332,7 +2338,6 @@ class _InteractiveCampusMapSectionState
   void _despejarInterfaz() {
     setState(() {
       _modoDespejado = true;
-      _categoriaFiltroActiva = '';
       _puntoServicioCercano = null;
       _tipoServicioCercano = null;
       _mostrarSugerencias = false;
@@ -4112,6 +4117,70 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     return isDark ? const Color(0xFFE5C71E) : const Color(0xFFF6DD0E);
   }
 
+  // Calcula el contorno convexo para evitar puntas en el borde del edificio
+  List<PuntoMapaUaa> _contornoConvexoEdificio(EdificioMapaUaa edificio) {
+    final List<PuntoMapaUaa> puntos = List<PuntoMapaUaa>.from(edificio.poligono)
+      ..sort((PuntoMapaUaa a, PuntoMapaUaa b) {
+        if (a.x == b.x) {
+          return a.y.compareTo(b.y);
+        }
+        return a.x.compareTo(b.x);
+      });
+    if (puntos.length < 3) {
+      return puntos;
+    }
+
+    double cruce(PuntoMapaUaa o, PuntoMapaUaa a, PuntoMapaUaa b) {
+      return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    }
+
+    final List<PuntoMapaUaa> inferior = <PuntoMapaUaa>[];
+    for (final PuntoMapaUaa punto in puntos) {
+      while (inferior.length >= 2 &&
+          cruce(inferior[inferior.length - 2], inferior.last, punto) <= 0) {
+        inferior.removeLast();
+      }
+      inferior.add(punto);
+    }
+
+    final List<PuntoMapaUaa> superior = <PuntoMapaUaa>[];
+    for (final PuntoMapaUaa punto in puntos.reversed) {
+      while (superior.length >= 2 &&
+          cruce(superior[superior.length - 2], superior.last, punto) <= 0) {
+        superior.removeLast();
+      }
+      superior.add(punto);
+    }
+
+    inferior.removeLast();
+    superior.removeLast();
+    final List<PuntoMapaUaa> contorno = <PuntoMapaUaa>[
+      ...inferior,
+      ...superior,
+    ];
+    return contorno.length >= 3 ? contorno : puntos;
+  }
+
+  // Construye la ruta limpia de un edificio para rellenos y bordes
+  Path _construirPathEdificio(EdificioMapaUaa edificio) {
+    final List<PuntoMapaUaa> contorno =
+        _idsContornoRecto.contains(edificio.idNodo)
+        ? edificio.poligono
+        : _contornoConvexoEdificio(edificio);
+    final Path path = Path();
+    for (int i = 0; i < contorno.length; i++) {
+      final double px = offsetX + contorno[i].x * imgW;
+      final double py = offsetY + contorno[i].y * imgH;
+      if (i == 0) {
+        path.moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+    path.close();
+    return path;
+  }
+
   // Rellena los edificios activos del filtro sobre el gris general
   void _dibujarRellenosEdificiosFiltrados(Canvas canvas) {
     if (categoriaFiltro.isEmpty) {
@@ -4122,19 +4191,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
           edificio.poligono.length < 3) {
         continue;
       }
-      final Path path = Path();
-      for (int i = 0; i < edificio.poligono.length; i++) {
-        final double px = offsetX + edificio.poligono[i].x * imgW;
-        final double py = offsetY + edificio.poligono[i].y * imgH;
-        if (i == 0) {
-          path.moveTo(px, py);
-        } else {
-          path.lineTo(px, py);
-        }
-      }
-      path.close();
       canvas.drawPath(
-        path,
+        _construirPathEdificio(edificio),
         Paint()
           ..color = _colorRellenoEdificioActivo(edificio)
           ..style = PaintingStyle.fill,
@@ -4302,63 +4360,70 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       }
     }
 
-    // 10. Numeros vectoriales nitidos sobre cada uno de los 154 / 19 edificios individuales
+    if (categoriaFiltro.isNotEmpty) {
+      _dibujarEdificiosDesactivados(canvas);
+    }
+    _dibujarNumerosEdificios(canvas);
+  }
+
+  // Dibuja los numeros de los edificios al final para que queden sobre los contornos
+  void _dibujarNumerosEdificios(Canvas canvas) {
+    final bool esSur = idCampus == 2;
+    final double escala = (imgW / 950.0).clamp(0.65, 1.45);
     final Set<String> idsFiltrados = categoriaFiltro.isEmpty
         ? const <String>{}
         : edificiosFiltrados.map((EdificioMapaUaa e) => e.idNodo).toSet();
-    if (mostrarNumeros || categoriaFiltro.isNotEmpty) {
-      final double fontEdif = (esSur ? 11.8 : 7.6) * escala;
-      for (final EdificioMapaUaa edif in edificiosCampus) {
-        if (edif.codigo.startsWith('ACCESO')) {
-          continue;
-        }
-        if (categoriaFiltro.isNotEmpty && !idsFiltrados.contains(edif.idNodo)) {
-          continue;
-        }
-        final String numTexto = edif.codigo.replaceFirst('EDIF ', '');
-        final double px = offsetX + edif.posX * imgW;
-        final double py = offsetY + edif.posY * imgH;
-        final bool usarTextoOscuro = esSur || edif.zona.contains('Apoyo');
-
-        final TextPainter tpHalo = TextPainter(
-          text: TextSpan(
-            text: numTexto,
-            style: TextStyle(
-              fontSize: fontEdif,
-              fontWeight: FontWeight.w900,
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = esSur ? 1.8 : 2.2
-                ..color = usarTextoOscuro
-                    ? Colors.white.withValues(alpha: esSur ? 0.65 : 1.0)
-                    : const Color(0xFF0F172A),
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-
-        final TextPainter tpFill = TextPainter(
-          text: TextSpan(
-            text: numTexto,
-            style: TextStyle(
-              fontSize: fontEdif,
-              fontWeight: FontWeight.w900,
-              color: usarTextoOscuro ? const Color(0xFF1A1D24) : Colors.white,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-
-        final Offset textOffset = Offset(
-          px - tpFill.width / 2.0,
-          py - tpFill.height / 2.0,
-        );
-        tpHalo.paint(canvas, textOffset);
-        tpFill.paint(canvas, textOffset);
-      }
+    if (!mostrarNumeros && categoriaFiltro.isEmpty) {
+      return;
     }
-    if (categoriaFiltro.isNotEmpty) {
-      _dibujarEdificiosDesactivados(canvas);
+    final double fontEdif = (esSur ? 11.8 : 7.6) * escala;
+    for (final EdificioMapaUaa edif in edificiosCampus) {
+      if (edif.codigo.startsWith('ACCESO')) {
+        continue;
+      }
+      if (categoriaFiltro.isNotEmpty && !idsFiltrados.contains(edif.idNodo)) {
+        continue;
+      }
+      final String numTexto = edif.codigo.replaceFirst('EDIF ', '');
+      final double px = offsetX + edif.posX * imgW;
+      final double py = offsetY + edif.posY * imgH;
+      final bool usarTextoOscuro = esSur || edif.zona.contains('Apoyo');
+
+      final TextPainter tpHalo = TextPainter(
+        text: TextSpan(
+          text: numTexto,
+          style: TextStyle(
+            fontSize: fontEdif,
+            fontWeight: FontWeight.w900,
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = esSur ? 1.8 : 2.2
+              ..color = usarTextoOscuro
+                  ? Colors.white.withValues(alpha: esSur ? 0.65 : 1.0)
+                  : const Color(0xFF0F172A),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final TextPainter tpFill = TextPainter(
+        text: TextSpan(
+          text: numTexto,
+          style: TextStyle(
+            fontSize: fontEdif,
+            fontWeight: FontWeight.w900,
+            color: usarTextoOscuro ? const Color(0xFF1A1D24) : Colors.white,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final Offset textOffset = Offset(
+        px - tpFill.width / 2.0,
+        py - tpFill.height / 2.0,
+      );
+      tpHalo.paint(canvas, textOffset);
+      tpFill.paint(canvas, textOffset);
     }
   }
 
@@ -4431,17 +4496,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       if (edificio.poligono.length < 3) {
         continue;
       }
-      final Path path = Path();
-      for (int i = 0; i < edificio.poligono.length; i++) {
-        final double px = offsetX + edificio.poligono[i].x * imgW;
-        final double py = offsetY + edificio.poligono[i].y * imgH;
-        if (i == 0) {
-          path.moveTo(px, py);
-        } else {
-          path.lineTo(px, py);
-        }
-      }
-      path.close();
+      final Path path = _construirPathEdificio(edificio);
       canvas.drawPath(path, haloPaint);
       canvas.drawPath(path, resaltadoPaint);
     }
@@ -4459,17 +4514,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       return;
     }
 
-    final Path polyPath = Path();
-    for (int i = 0; i < edificio.poligono.length; i++) {
-      final double px = offsetX + edificio.poligono[i].x * imgW;
-      final double py = offsetY + edificio.poligono[i].y * imgH;
-      if (i == 0) {
-        polyPath.moveTo(px, py);
-      } else {
-        polyPath.lineTo(px, py);
-      }
-    }
-    polyPath.close();
+    final Path polyPath = _construirPathEdificio(edificio);
 
     final Paint fillPaint = Paint()
       ..color = colorBorde.withValues(alpha: opacidadRelleno)
