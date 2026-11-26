@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/aviso_institucional.dart';
 import '../../domain/entities/campus_info.dart';
@@ -17,7 +19,7 @@ class PortalRepository {
     return const <SesionUsuarioUaa>[
       // Perfil 1: Alumno sin adeudos (adeudoPendiente es null, por lo que no se muestra tarjeta de adeudo)
       SesionUsuarioUaa(
-        nombre: 'Alumno Campus Central',
+        nombre: 'Angel Azael Fajardo Espino',
         identificador: 'ID 284510',
         esProfesor: false,
         idCampusOrigen: 1,
@@ -42,12 +44,13 @@ class PortalRepository {
           tareaEntregaPendiente: 'Reporte de Pruebas Unitarias Pytest',
           detalleTareaPendiente: 'Vence hoy a las 22:00 hrs en Aula Virtual',
           adeudoPendiente: 'Colegiatura Mensual Noviembre 2026',
-          detalleAdeudo: 'Pagar en linea o en Cajas Edificio 1-A antes del 30 Nov',
+          detalleAdeudo:
+              'Pagar en linea o en Cajas Edificio 1-A antes del 30 Nov',
         ),
       ),
       // Perfil 3: Docente UAA (sin adeudos, con grupo y revisiones pendientes)
       SesionUsuarioUaa(
-        nombre: 'Profesor UAA',
+        nombre: 'Dr. David Montoya',
         identificador: 'EMP 10482',
         esProfesor: true,
         idCampusOrigen: 1,
@@ -55,7 +58,8 @@ class PortalRepository {
           proximaClaseGrupo: '16:00 hrs - Grupo 7A Ingenieria en Computacion',
           detalleProximaClase: 'Edificio 60, Laboratorio de Redes (32 alumnos)',
           tareaEntregaPendiente: '14 Entregas nuevas recibidas por calificar',
-          detalleTareaPendiente: 'Materia: Sistemas Distribuidos (Aula Virtual)',
+          detalleTareaPendiente:
+              'Materia: Sistemas Distribuidos (Aula Virtual)',
           adeudoPendiente: null,
           detalleAdeudo: null,
         ),
@@ -97,8 +101,7 @@ class PortalRepository {
       AvisoInstitucional(
         idAviso: 'BOLETIN-546',
         titulo: 'Comunidad Universitaria UAA: Excelencia Academica 2026-2',
-        resumen:
-            'Consulta convocatorias, servicios estudiantiles y actividades academicas en Ciudad Universitaria y Campus Sur.',
+        resumen: 'Consulta convocatorias, servicios estudiantiles y actividades academicas en Ciudad Universitaria y Campus Sur.',
         idCampus: 1,
         fechaPublicacion: '14 Nov 2026',
         categoria: 'Vida Universitaria',
@@ -107,8 +110,7 @@ class PortalRepository {
       AvisoInstitucional(
         idAviso: 'AVISO-547',
         titulo: 'Periodo Abierto de Inscripciones y Reinscripciones E-SIIMA',
-        resumen:
-            'Realiza tu seleccion de materias y consulta de horarios de manera agil desde el portal institucional.',
+        resumen: 'Realiza tu seleccion de materias y consulta de horarios de manera agil desde el portal institucional.',
         idCampus: 1,
         fechaPublicacion: '16 Nov 2026',
         categoria: 'Control Escolar',
@@ -116,9 +118,9 @@ class PortalRepository {
       ),
       AvisoInstitucional(
         idAviso: 'BOLETIN-548',
-        titulo: 'Infraestructura y Laboratorios en Campus Sur para tu Formacion',
-        resumen:
-            'Bibliotecas, laboratorios de ingenieria y aulas equipadas al servicio de los estudiantes de Campus Sur.',
+        titulo:
+            'Infraestructura y Laboratorios en Campus Sur para tu Formacion',
+        resumen: 'Bibliotecas, laboratorios de ingenieria y aulas equipadas al servicio de los estudiantes de Campus Sur.',
         idCampus: 2,
         fechaPublicacion: '18 Nov 2026',
         categoria: 'Campus Sur',
@@ -127,8 +129,7 @@ class PortalRepository {
       AvisoInstitucional(
         idAviso: 'AVISO-549',
         titulo: 'Orgullo e Identidad Gallos UAA - Se Lumen Proferre',
-        resumen:
-            'Participa en los encuentros culturales, deportivos y muestras departamentales de cierre de semestre.',
+        resumen: 'Participa en los encuentros culturales, deportivos y muestras departamentales de cierre de semestre.',
         idCampus: 1,
         fechaPublicacion: '20 Nov 2026',
         categoria: 'Identidad UAA',
@@ -137,8 +138,7 @@ class PortalRepository {
       AvisoInstitucional(
         idAviso: 'AVISO-550',
         titulo: 'Aula Virtual: Entrega de Proyectos y Evaluacion Continua',
-        resumen:
-            'Envia tus tareas y proyectos integradores y consulta la retroalimentacion directa de tus profesores.',
+        resumen: 'Envia tus tareas y proyectos integradores y consulta la retroalimentacion directa de tus profesores.',
         idCampus: 2,
         fechaPublicacion: '22 Nov 2026',
         categoria: 'Aula Virtual',
@@ -147,8 +147,7 @@ class PortalRepository {
       AvisoInstitucional(
         idAviso: 'BOLETIN-551',
         titulo: 'Consulta de Calificaciones y Ventanilla Digital de Pagos',
-        resumen:
-            'Revisa tu kardex actualizado y genera tus recibos de pago de colegiatura en linea las 24 horas.',
+        resumen: 'Revisa tu kardex actualizado y genera tus recibos de pago de colegiatura en linea las 24 horas.',
         idCampus: 2,
         fechaPublicacion: '23 Nov 2026',
         categoria: 'Servicios Digitales',
@@ -173,8 +172,7 @@ class PortalRepository {
       ConvocatoriaUaa(
         folio: 'CONV-BECA-2026',
         titulo: 'Beca Institucional de Excelencia y Apoyo Economico',
-        descripcion:
-            'Recepcion de solicitudes y estudio socioeconomico para descuento de colegiatura del semestre 2026-2.',
+        descripcion: 'Recepcion de solicitudes y estudio socioeconomico para descuento de colegiatura del semestre 2026-2.',
         diasRestantesTexto: 'Cierra en 5 dias',
         dirigidoA: 'Alumnos',
         idCampus: 1,
@@ -183,8 +181,7 @@ class PortalRepository {
       ConvocatoriaUaa(
         folio: 'CONV-CAADI-09',
         titulo: 'Inscripcion a Cursos de Idiomas y Examen de Colocacion',
-        descripcion:
-            'Registro abierto para ingles, frances, aleman y japones con acreditacion del requisito de titulacion.',
+        descripcion: 'Registro abierto para ingles, frances, aleman y japones con acreditacion del requisito de titulacion.',
         diasRestantesTexto: 'Cierra en 8 dias',
         dirigidoA: 'Alumnos',
         idCampus: 2,
@@ -192,17 +189,16 @@ class PortalRepository {
       ConvocatoriaUaa(
         folio: 'CONV-SS-2026',
         titulo: 'Registro de Proyectos de Servicio Social y Practicas Profesionales',
-        descripcion:
-            'Selecciona unidades receptoras internas o en empresas conveniadas para liberar horas reglamentarias.',
+        descripcion: 'Selecciona unidades receptoras internas o en empresas conveniadas para liberar horas reglamentarias.',
         diasRestantesTexto: 'Cierra el 30 Nov',
         dirigidoA: 'Alumnos',
         idCampus: 1,
       ),
       ConvocatoriaUaa(
         folio: 'CONV-DOC-14',
-        titulo: 'Fondo de Apoyo a la Investigacion y Estancias Academicas Docentes',
-        descripcion:
-            'Registro de protocolos de investigacion interdisciplinaria y renovacion de perfil PRODEP.',
+        titulo:
+            'Fondo de Apoyo a la Investigacion y Estancias Academicas Docentes',
+        descripcion: 'Registro de protocolos de investigacion interdisciplinaria y renovacion de perfil PRODEP.',
         diasRestantesTexto: 'Abierta hasta 10 Dic',
         dirigidoA: 'Docentes',
         idCampus: 1,
@@ -266,8 +262,10 @@ class PortalRepository {
     const List<MenuComedorUaa> menus = <MenuComedorUaa>[
       MenuComedorUaa(
         nombreComedor: 'Comedor Universitario Poliforum (Campus Central)',
-        platilloPrincipal: 'Pechuga asada a las finas hierbas o Enchiladas verdes',
-        guarnicionBebida: 'Sopa del dia, arroz, ensalada fresca, agua de jamaica y postre',
+        platilloPrincipal:
+            'Pechuga asada a las finas hierbas o Enchiladas verdes',
+        guarnicionBebida:
+            'Sopa del dia, arroz, ensalada fresca, agua de jamaica y postre',
         horario: '12:00 a 16:30 hrs',
         cuotaEstudiante: 'Subsidio con credencial UAA',
         idCampus: 1,
@@ -275,7 +273,8 @@ class PortalRepository {
       MenuComedorUaa(
         nombreComedor: 'Cafeteria y Comedor Universitario Campus Sur',
         platilloPrincipal: 'Fajitas de res con pimientos o Milanesa de pollo',
-        guarnicionBebida: 'Crema de verduras, frijoles de la olla, agua de limon y fruta',
+        guarnicionBebida:
+            'Crema de verduras, frijoles de la olla, agua de limon y fruta',
         horario: '11:30 a 16:30 hrs',
         cuotaEstudiante: 'Subsidio con credencial UAA',
         idCampus: 2,
@@ -296,7 +295,8 @@ class PortalRepository {
       RutaTransporteUaa(
         nombreRuta: 'Ruta Expres Intercampus: Central -> Campus Sur',
         paraderoOrigen: 'Paradero Poliforum / Av. Universidad #940',
-        paraderoDestino: 'Acceso Principal Campus Sur (Blvd. Jose Maria Chavez)',
+        paraderoDestino:
+            'Acceso Principal Campus Sur (Blvd. Jose Maria Chavez)',
         proximaSalida: 'Sale en 12 min (15:30 hrs)',
         frecuencia: 'Salidas cada 30 minutos',
         estadoRuta: 'En tiempo',
@@ -324,8 +324,10 @@ class PortalRepository {
   List<GuiaTramiteFaqUaa> obtenerGuiasTramitesFaq() {
     return const <GuiaTramiteFaqUaa>[
       GuiaTramiteFaqUaa(
-        pregunta: 'Como justifico inasistencias por consulta medica o enfermedad?',
-        edificioResponsable: 'Unidad Medico Didactica (Edificio 101) y Decanato',
+        pregunta:
+            'Como justifico inasistencias por consulta medica o enfermedad?',
+        edificioResponsable:
+            'Unidad Medico Didactica (Edificio 101) y Decanato',
         pasos: <String>[
           '1. Acude a valoracion o valida tu receta en la Unidad Medico Didactica (Edif. 101) dentro de las 48 horas posteriores.',
           '2. Solicita el formato sellado de incapacidad medica estudiantil con tu matricula.',
@@ -334,7 +336,8 @@ class PortalRepository {
       ),
       GuiaTramiteFaqUaa(
         pregunta: 'Que hago si se agota el cupo de una materia durante mi inscripcion en E-SIIMA?',
-        edificioResponsable: 'Jefatura de Departamento Academico / Portal E-SIIMA',
+        edificioResponsable:
+            'Jefatura de Departamento Academico / Portal E-SIIMA',
         pasos: <String>[
           '1. Verifica en E-SIIMA si existe otro grupo u horario disponible en tu campus.',
           '2. Si todos los grupos estan llenos, registra tu solicitud de sobrecupo en el modulo de Ajustes de Carga.',
@@ -342,8 +345,10 @@ class PortalRepository {
         ],
       ),
       GuiaTramiteFaqUaa(
-        pregunta: 'Como tramito una Constancia de Estudios o Kardex Oficial sellado?',
-        edificioResponsable: 'Departamento de Control Escolar (Edificio 1-A Planta Baja)',
+        pregunta:
+            'Como tramito una Constancia de Estudios o Kardex Oficial sellado?',
+        edificioResponsable:
+            'Departamento de Control Escolar (Edificio 1-A Planta Baja)',
         pasos: <String>[
           '1. Ingresa a la Ventanilla de Pagos en E-SIIMA y cubre el derecho de Constancia o Kardex.',
           '2. Descarga el documento con firma electronica QR o acude a las ventanillas del Edificio 1-A con tu credencial UAA.',
@@ -415,7 +420,8 @@ class PortalRepository {
       return const <AccionPerfilUaa>[
         AccionPerfilUaa(
           titulo: 'Publicar Tarea o Aviso',
-          descripcion: 'Asigna actividades con fecha limite y ponderacion a tus grupos.',
+          descripcion:
+              'Asigna actividades con fecha limite y ponderacion a tus grupos.',
           etiquetaModulo: 'Aula Virtual Docente',
           icono: Icons.post_add_outlined,
         ),
@@ -433,7 +439,8 @@ class PortalRepository {
         ),
         AccionPerfilUaa(
           titulo: 'Listas de Grupo y Asistencia',
-          descripcion: 'Consulta los alumnos inscritos en tus asignaturas por campus.',
+          descripcion:
+              'Consulta los alumnos inscritos en tus asignaturas por campus.',
           etiquetaModulo: 'Control Escolar',
           icono: Icons.groups_outlined,
         ),
@@ -449,31 +456,36 @@ class PortalRepository {
     return const <AccionPerfilUaa>[
       AccionPerfilUaa(
         titulo: 'Subir Tarea en Aula Virtual',
-        descripcion: 'Consulta tus entregas pendientes y envia tus archivos a tiempo.',
+        descripcion:
+            'Consulta tus entregas pendientes y envia tus archivos a tiempo.',
         etiquetaModulo: 'Aula Virtual',
         icono: Icons.upload_file_outlined,
       ),
       AccionPerfilUaa(
         titulo: 'Mi Horario y Materias',
-        descripcion: 'Revisa tus clases inscritas, aulas asignadas y profesores.',
+        descripcion:
+            'Revisa tus clases inscritas, aulas asignadas y profesores.',
         etiquetaModulo: 'E-SIIMA Alumno',
         icono: Icons.schedule_outlined,
       ),
       AccionPerfilUaa(
         titulo: 'Kardex y Calificaciones',
-        descripcion: 'Consulta tus notas parciales, promedio general y comentarios.',
+        descripcion:
+            'Consulta tus notas parciales, promedio general y comentarios.',
         etiquetaModulo: 'Evaluacion',
         icono: Icons.school_outlined,
       ),
       AccionPerfilUaa(
         titulo: 'Inscripcion y Carga Academica',
-        descripcion: 'Selecciona grupos disponibles en tu campus en tiempo real.',
+        descripcion:
+            'Selecciona grupos disponibles en tu campus en tiempo real.',
         etiquetaModulo: 'Inscripciones',
         icono: Icons.how_to_reg_outlined,
       ),
       AccionPerfilUaa(
         titulo: 'Pagar Colegiatura en Linea',
-        descripcion: 'Genera tu linea de captura o realiza tu pago por referencia.',
+        descripcion:
+            'Genera tu linea de captura o realiza tu pago por referencia.',
         etiquetaModulo: 'Finanzas',
         icono: Icons.account_balance_wallet_outlined,
       ),
@@ -486,21 +498,21 @@ class PortalRepository {
       ServicioCampusUaa(
         nombre: 'Biblioteca Central Dr. Desiderio Macias Silva',
         ubicacion: 'Edificio 56, Zona Central de Ciudad Universitaria',
-        horario: 'Lunes a Viernes: 07:00 - 21:00 hrs | Sabados: 08:00 - 14:00 hrs',
+        horario:
+            'Lunes a Viernes: 07:00 - 21:00 hrs | Sabados: 08:00 - 14:00 hrs',
         estadoActual: 'Abierto - Salas disponibles',
-        descripcion:
-            'Prestamo de acervo bibliografico, cubiculos de estudio grupal y acceso a bases de datos cientificas.',
+        descripcion: 'Prestamo de acervo bibliografico, cubiculos de estudio grupal y acceso a bases de datos cientificas.',
         telefonoExtension: 'Tel. 449 910 74 00 Ext. 5610',
         idCampus: 1,
         icono: Icons.local_library_outlined,
       ),
       ServicioCampusUaa(
         nombre: 'Cajas y Departamento de Finanzas',
-        ubicacion: 'Edificio Academico Administrativo (Planta Baja, Edificio 1-A)',
+        ubicacion:
+            'Edificio Academico Administrativo (Planta Baja, Edificio 1-A)',
         horario: 'Ventanilla: 08:00 - 15:30 hrs | Portal en linea: 24/7',
         estadoActual: 'Abierto - Pago digital 24/7',
-        descripcion:
-            'Recepcion de pagos de matricula, colegiatura mensual, constancias y derechos de examen.',
+        descripcion: 'Recepcion de pagos de matricula, colegiatura mensual, constancias y derechos de examen.',
         telefonoExtension: 'Tel. 449 910 74 00 Ext. 2114',
         idCampus: 1,
         icono: Icons.payments_outlined,
@@ -510,8 +522,7 @@ class PortalRepository {
         ubicacion: 'Edificio 1-A Planta Baja, Ciudad Universitaria',
         horario: 'Lunes a Viernes: 08:00 - 15:30 hrs',
         estadoActual: 'Abierto',
-        descripcion:
-            'Emision de constancias de estudios, reposicion de credencial inteligente, altas y bajas.',
+        descripcion: 'Emision de constancias de estudios, reposicion de credencial inteligente, altas y bajas.',
         telefonoExtension: 'Tel. 449 910 74 00 Ext. 2205',
         idCampus: 1,
         icono: Icons.badge_outlined,
@@ -521,8 +532,7 @@ class PortalRepository {
         ubicacion: 'Edificio 101, Zona Norte de Ciudad Universitaria',
         horario: 'Lunes a Viernes: 07:30 - 20:00 hrs',
         estadoActual: 'Atencion activa',
-        descripcion:
-            'Consultas medicas generales, optometria, estomatologia, nutricion y apoyo psicologico estudiantil.',
+        descripcion: 'Consultas medicas generales, optometria, estomatologia, nutricion y apoyo psicologico estudiantil.',
         telefonoExtension: 'Tel. 449 910 74 00 Ext. 5300',
         idCampus: 1,
         icono: Icons.medical_services_outlined,
@@ -532,8 +542,7 @@ class PortalRepository {
         ubicacion: 'Edificio B y Modulo Bibliotecario, Campus Sur',
         horario: 'Lunes a Viernes: 07:00 - 20:30 hrs',
         estadoActual: 'Equipos disponibles',
-        descripcion:
-            'Centro de Aprendizaje Autodirigido de Idiomas, salas de computo de ingenieria y acervo especializado en Campus Sur.',
+        descripcion: 'Centro de Aprendizaje Autodirigido de Idiomas, salas de computo de ingenieria y acervo especializado en Campus Sur.',
         telefonoExtension: 'Tel. 449 910 74 00 Ext. 7120',
         idCampus: 2,
         icono: Icons.computer_outlined,
@@ -543,8 +552,7 @@ class PortalRepository {
         ubicacion: 'Edificio A Planta Baja / Paradero Blvd. Jose Maria Chavez',
         horario: 'Rutas: 06:45 - 21:15 hrs | Ventanilla: 08:00 - 15:30 hrs',
         estadoActual: 'En operacion',
-        descripcion:
-            'Conexion de transporte universitario entre Campus Central y Sur, tramites escolares y becas.',
+        descripcion: 'Conexion de transporte universitario entre Campus Central y Sur, tramites escolares y becas.',
         telefonoExtension: 'Tel. 449 910 74 00 Ext. 7105',
         idCampus: 2,
         icono: Icons.directions_bus_outlined,
@@ -584,7 +592,8 @@ class PortalRepository {
         idCampus: 1,
       ),
       ActividadUniversitaria(
-        titulo: 'Taller Practico: Sistemas Distribuidos, Docker y Bases de Datos',
+        titulo:
+            'Taller Practico: Sistemas Distribuidos, Docker y Bases de Datos',
         categoria: 'Talleres y Congresos',
         beneficio: 'Constancia con Valor Curricular',
         fechaHora: '30 Nov 2026 - 16:00 hrs',
@@ -602,7 +611,8 @@ class PortalRepository {
         idCampus: 1,
       ),
       ActividadUniversitaria(
-        titulo: 'Curso Docente: Evaluacion por Rubricas y Gestion de Aula Virtual',
+        titulo:
+            'Curso Docente: Evaluacion por Rubricas y Gestion de Aula Virtual',
         categoria: 'Apoyo Docente',
         beneficio: 'Acreditacion PRODEP / Formacion Docente',
         fechaHora: '03 Dic 2026 - 10:00 hrs',
@@ -622,7 +632,8 @@ class PortalRepository {
     ];
 
     return actividades.where((ActividadUniversitaria a) {
-      final bool coincideCategoria = categoriaFiltro == null ||
+      final bool coincideCategoria =
+          categoriaFiltro == null ||
           categoriaFiltro == 'Todas' ||
           a.categoria == categoriaFiltro;
       final bool coincideCampus =
@@ -653,10 +664,10 @@ class PortalRepository {
     required String idNodoOrigen,
     required String idNodoDestino,
   }) {
-    final List<EdificioMapaUaa> edificios =
-        obtenerEdificiosMapa(idCampus: idCampus);
-    final List<NodoPasilloUaa> nodos =
-        obtenerGrafoPasillos(idCampus: idCampus);
+    final List<EdificioMapaUaa> edificios = obtenerEdificiosMapa(
+      idCampus: idCampus,
+    );
+    final List<NodoPasilloUaa> nodos = obtenerGrafoPasillos(idCampus: idCampus);
 
     final EdificioMapaUaa origen = edificios.firstWhere(
       (EdificioMapaUaa e) => e.idNodo == idNodoOrigen,
@@ -677,8 +688,9 @@ class PortalRepository {
       return RutaPeatonalUaa(
         origen: origen,
         destino: destino,
-        puntosTrayecto:
-            nodoUnico != null ? <NodoPasilloUaa>[nodoUnico] : <NodoPasilloUaa>[],
+        puntosTrayecto: nodoUnico != null
+            ? <NodoPasilloUaa>[nodoUnico]
+            : <NodoPasilloUaa>[],
         distanciaMetros: 0,
         tiempoMinutos: 1,
         indicacionesPasoAPaso: <String>[
@@ -765,11 +777,11 @@ class PortalRepository {
     }
 
     // Calcula la distancia real aproximada en metros y el tiempo estimado a pie
-    final double distanciaNormalizada =
-        distancias[destino.idNodo] ?? 0.18;
+    final double distanciaNormalizada = distancias[destino.idNodo] ?? 0.18;
     final double factorEscalaMetros = idCampus == 1 ? 760.0 : 680.0;
-    final int metros =
-        (distanciaNormalizada * factorEscalaMetros).round().clamp(35, 1400);
+    final int metros = (distanciaNormalizada * factorEscalaMetros)
+        .round()
+        .clamp(35, 1400);
     final int minutos = (metros / 75.0).ceil().clamp(1, 19);
 
     // Genera las indicaciones paso a paso sin repetir el mismo pasillo consecutivo
@@ -808,7 +820,8 @@ class PortalRepository {
       CentroAcademicoUaa(
         siglas: 'CCB',
         nombre: 'Centro de Ciencias Basicas',
-        decanatoEdificio: 'Edificio 54 / Laboratorios Edificio 60 (Campus Central)',
+        decanatoEdificio:
+            'Edificio 54 / Laboratorios Edificio 60 (Campus Central)',
         extensionTelefonica: 'Ext. 8400',
         idCampus: 1,
       ),
@@ -836,7 +849,8 @@ class PortalRepository {
       CentroAcademicoUaa(
         siglas: 'CCS',
         nombre: 'Centro de Ciencias de la Salud',
-        decanatoEdificio: 'Edificio 101 / Unidad Medico Didactica (Campus Central)',
+        decanatoEdificio:
+            'Edificio 101 / Unidad Medico Didactica (Campus Central)',
         extensionTelefonica: 'Ext. 5300',
         idCampus: 1,
       ),

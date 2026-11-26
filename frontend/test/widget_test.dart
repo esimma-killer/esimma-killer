@@ -133,6 +133,26 @@ void main() {
     expect(fueraUaa.entradaMasCercana.idNodoEdificio, isNotEmpty);
   });
 
+  test('Incluye perfiles de alumno y docente con nombre para el selector', () {
+    final List<SesionUsuarioUaa> perfiles = const PortalRepository()
+        .obtenerPerfilesPrueba();
+
+    expect(
+      perfiles.any(
+        (SesionUsuarioUaa sesion) =>
+            !sesion.esProfesor && sesion.nombre == 'Angel Azael Fajardo Espino',
+      ),
+      isTrue,
+    );
+    expect(
+      perfiles.any(
+        (SesionUsuarioUaa sesion) =>
+            sesion.esProfesor && sesion.nombre == 'Dr. David Montoya',
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets(
     'Renderiza la landing en ancho de telefono sin desbordar el encabezado',
     (WidgetTester tester) async {
@@ -157,6 +177,12 @@ void main() {
         ),
         findsOneWidget,
       );
+
+      // En celular el cambio de tema vive dentro del menu hamburguesa
+      await tester.tap(find.byTooltip('Abrir menu de secciones'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cambiar a modo oscuro'), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

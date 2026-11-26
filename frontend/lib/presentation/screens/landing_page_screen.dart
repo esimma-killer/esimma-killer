@@ -239,7 +239,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
         : (screenWidth * 0.035).clamp(24.0, 56.0);
 
     return Scaffold(
-      drawer: !isPcOrLaptop ? _buildHamburgerDrawer(isDark) : null,
+      drawer: !isPcOrLaptop
+          ? _buildHamburgerDrawer(isDark, mostrarToggleTema: isMobile)
+          : null,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -860,7 +862,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
         }).toList();
       },
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: compact ? 210 : 280),
+        constraints: BoxConstraints(maxWidth: compact ? 230 : 280),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
@@ -1132,7 +1134,6 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                             onTap: () => _mostrarAvisoAcceso('Aula Virtual'),
                           ),
                           _buildQuickMenuButton(true),
-                          _buildThemeToggleButton(isDark),
                         ],
                       ),
                     ],
@@ -1301,7 +1302,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   }
 
   // Menu hamburguesa para Tablet y Celular con animacion de entrada escalonada en sus opciones
-  Widget _buildHamburgerDrawer(bool isDark) {
+  Widget _buildHamburgerDrawer(bool isDark, {required bool mostrarToggleTema}) {
     final List<Map<String, Object>> opcionesMenu = <Map<String, Object>>[
       <String, Object>{
         'icono': Icons.home_outlined,
@@ -1426,32 +1427,51 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: ListTile(
-                      leading: Icon(
-                        item['icono']! as IconData,
-                        color: activa
-                            ? (isDark
-                                  ? AppColors.footerAccentBlue
-                                  : AppColors.primaryNavy)
-                            : null,
-                      ),
-                      title: Text(
-                        item['titulo']! as String,
-                        style: TextStyle(
-                          fontWeight: activa
-                              ? FontWeight.w800
-                              : FontWeight.w500,
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        leading: Icon(
+                          item['icono']! as IconData,
+                          color: activa
+                              ? (isDark
+                                    ? AppColors.footerAccentBlue
+                                    : AppColors.primaryNavy)
+                              : null,
                         ),
+                        title: Text(
+                          item['titulo']! as String,
+                          style: TextStyle(
+                            fontWeight: activa
+                                ? FontWeight.w800
+                                : FontWeight.w500,
+                          ),
+                        ),
+                        selected: activa,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _navegarASeccion(sec);
+                        },
                       ),
-                      selected: activa,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        _navegarASeccion(sec);
-                      },
                     ),
                   ),
                 );
               }),
+              if (mostrarToggleTema) ...<Widget>[
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                  title: Text(
+                    isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+                  ),
+                  trailing: Switch(
+                    value: isDark,
+                    onChanged: (_) => widget.onToggleTheme(),
+                  ),
+                  onTap: widget.onToggleTheme,
+                ),
+              ],
             ],
           ),
         ),
