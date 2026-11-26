@@ -43,6 +43,13 @@ class _InteractiveCampusMapSectionState
   bool _modoVectorialEstilizado = true;
   bool _zoomInicialAplicado = false;
 
+  // Capas y nivel de detalle para mantener limpio el mapa en todos los dispositivos
+  bool _mostrarNumerosEdificios = true;
+  bool _mostrarServiciosMapa = true;
+  bool _mostrarAccesosMapa = true;
+  bool _mostrarEtiquetasMapa = true;
+  double _escalaZoom = 2.15;
+
   // Estado de geolocalizacion automatica en tiempo real y recorte progresivo de ruta
   final GeolocationServiceUaa _geolocationService = GeolocationServiceUaa();
   StreamSubscription<LecturaGpsUsuario>? _gpsSubscription;
@@ -87,10 +94,12 @@ class _InteractiveCampusMapSectionState
     _idCampusMapa = widget.initialCampusId;
     _inicializarRutaPorDefecto(_idCampusMapa);
     _iniciarDeteccionUbicacionAutomatica();
+    _zoomController.addListener(_actualizarEscalaZoom);
   }
 
   @override
   void dispose() {
+    _zoomController.removeListener(_actualizarEscalaZoom);
     _gpsSubscription?.cancel();
     _geolocationService.detenerSeguimiento();
     _pictureBase?.dispose();
@@ -451,6 +460,99 @@ class _InteractiveCampusMapSectionState
     return nuevaRuta;
   }
 
+  // Devuelve un punto intermedio de la ruta para colocar la etiqueta de tiempo y distancia
+  PuntoMapaUaa _puntoMedioRuta(RutaPeatonalUaa ruta) {
+    final List<NodoPasilloUaa> puntos = ruta.puntosTrayecto;
+    if (puntos.length < 2) {
+      return PuntoMapaUaa(ruta.destino.posX, ruta.destino.posY);
+    }
+    double total = 0.0;
+    final List<double> tramos = <double>[];
+    for (int i = 0; i < puntos.length - 1; i++) {
+      final double dx = puntos[i + 1].posX - puntos[i].posX;
+      final double dy = puntos[i + 1].posY - puntos[i].posY;
+      final double distancia = math.sqrt(dx * dx + dy * dy);
+      tramos.add(distancia);
+      total += distancia;
+    }
+    if (total <= 1e-6) {
+      return PuntoMapaUaa(puntos.first.posX, puntos.first.posY);
+    }
+    final double objetivo = total * 0.45;
+    double acumulado = 0.0;
+    for (int i = 0; i < puntos.length - 1; i++) {
+      if (acumulado + tramos[i] >= objetivo && tramos[i] > 1e-9) {
+        final double t = ((objetivo - acumulado) / tramos[i]).clamp(0.0, 1.0);
+        return PuntoMapaUaa(
+          puntos[i].posX + (puntos[i + 1].posX - puntos[i].posX) * t,
+          puntos[i].posY + (puntos[i + 1].posY - puntos[i].posY) * t,
+        );
+      }
+      acumulado += tramos[i];
+    }
+    return PuntoMapaUaa(puntos.last.posX, puntos.last.posY);
+  }
+
+  // Etiqueta discreta con tiempo y distancia restante sobre el trazo de la ruta
+  Widget _buildRouteInfoBubble({
+    required RutaPeatonalUaa rutaActiva,
+    required double offsetX,
+    required double offsetY,
+    required double imgW,
+    required double imgH,
+    required double maxW,
+    required double maxH,
+    required bool isDark,
+  }) {
+    final PuntoMapaUaa punto = _puntoMedioRuta(rutaActiva);
+    final double factorRestante = (1.0 - _progresoRecorridoUsuario).clamp(
+      0.0,
+      1.0,
+    );
+    final int metros = (rutaActiva.distanciaMetros * factorRestante).round();
+    final int minutos = metros <= 0
+        ? 0
+        : math.max(1, (rutaActiva.tiempoMinutos * factorRestante).ceil());
+    final double left = (offsetX + punto.x * imgW - 28).clamp(
+      6.0,
+      math.max(8.0, maxW - 60.0),
+    );
+    final double top = (offsetY + punto.y * imgH - 9).clamp(
+      6.0,
+      math.max(8.0, maxH - 20.0),
+    );
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: IgnorePointer(
+        child: Transform.scale(
+          scale: 1 / _escalaZoom,
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : const Color(0xFFDADCE0),
+              ),
+            ),
+            child: Text(
+              '$minutos min • $metros m',
+              style: TextStyle(
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.1,
+                color: isDark ? Colors.white : AppColors.primaryNavy,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // Graba la capa base vectorial una sola vez por campus, tema y tamano para evitar redibujarla en cada frame
   ui.Picture _obtenerPictureBase({
     required bool isDark,
@@ -460,9 +562,13 @@ class _InteractiveCampusMapSectionState
     required double imgH,
     required RutaPeatonalUaa rutaActiva,
     required List<EdificioMapaUaa> edificiosCampus,
+    required bool mostrarNumeros,
+    required bool mostrarServicios,
+    required bool mostrarAccesos,
+    required bool mostrarEtiquetas,
   }) {
     final String clave =
-        '$_idCampusMapa|$isDark|${imgW.round()}|${imgH.round()}|${offsetX.round()}|${offsetY.round()}';
+        '$_idCampusMapa|$isDark|${imgW.round()}|${imgH.round()}|${offsetX.round()}|${offsetY.round()}|$mostrarNumeros|$mostrarServicios|$mostrarAccesos|$mostrarEtiquetas';
     final ui.Picture? pictureGuardada = _pictureBase;
     if (pictureGuardada != null && _clavePictureBase == clave) {
       return pictureGuardada;
@@ -473,6 +579,10 @@ class _InteractiveCampusMapSectionState
     final _VectorCampusOverlayPainter painter = _VectorCampusOverlayPainter(
       idCampus: _idCampusMapa,
       dibujarCapasBaseVectoriales: true,
+      mostrarNumeros: mostrarNumeros,
+      mostrarServicios: mostrarServicios,
+      mostrarAccesos: mostrarAccesos,
+      mostrarEtiquetas: mostrarEtiquetas,
       isDark: isDark,
       edificiosCampus: edificiosCampus,
       rutaActiva: rutaActiva,
@@ -526,6 +636,23 @@ class _InteractiveCampusMapSectionState
       ..translateByDouble(tx, ty, 0.0, 1.0)
       ..scaleByDouble(scale, scale, 1.0, 1.0);
     _zoomController.value = m;
+  }
+
+  // Actualiza el nivel de detalle cuando el zoom cruza los umbrales del mapa
+  void _actualizarEscalaZoom() {
+    final double nuevaEscala = _zoomController.value.getMaxScaleOnAxis();
+    final bool cambioNivel =
+        (_escalaZoom >= 0.95) != (nuevaEscala >= 0.95) ||
+        (_escalaZoom >= 1.2) != (nuevaEscala >= 1.2) ||
+        (_escalaZoom >= 1.4) != (nuevaEscala >= 1.4) ||
+        (_escalaZoom >= 2.6) != (nuevaEscala >= 2.6);
+    if (cambioNivel) {
+      setState(() {
+        _escalaZoom = nuevaEscala;
+      });
+    } else {
+      _escalaZoom = nuevaEscala;
+    }
   }
 
   // Alterna entre Campus Central (153 edificios) y Campus Sur (19 edificios)
@@ -1331,8 +1458,6 @@ class _InteractiveCampusMapSectionState
 
     final Widget categoryChipsRow = _buildGoogleMapsCategoryChipsBar(
       isDark: isDark,
-      todosEdificios: todosEdificios,
-      rutaActiva: rutaActiva,
     );
 
     final Widget? locationBanner = _ocultarBannerUbicacion
@@ -1875,33 +2000,8 @@ class _InteractiveCampusMapSectionState
   }
 
   // Barra horizontal superior: primero muestra la insignia de Tiempo Estimado (actualizada con el avance) y luego los chips
-  Widget _buildGoogleMapsCategoryChipsBar({
-    required bool isDark,
-    required List<EdificioMapaUaa> todosEdificios,
-    required RutaPeatonalUaa rutaActiva,
-  }) {
-    final double factorRestante = (1.0 - _progresoRecorridoUsuario).clamp(
-      0.0,
-      1.0,
-    );
-    final int metrosRestantes = (rutaActiva.distanciaMetros * factorRestante)
-        .round();
-    final int minutosRestantes = metrosRestantes <= 0
-        ? 0
-        : math.max(1, (rutaActiva.tiempoMinutos * factorRestante).ceil());
-
+  Widget _buildGoogleMapsCategoryChipsBar({required bool isDark}) {
     final List<Map<String, Object>> categorias = <Map<String, Object>>[
-      <String, Object>{
-        'id': 'TIME_BADGE',
-        'label':
-            '$minutosRestantes min a pie ($metrosRestantes m) • ${rutaActiva.destino.codigo}',
-        'icon': Icons.directions_walk,
-      },
-      <String, Object>{
-        'id': 'CAMPUS_SWITCH',
-        'label': _idCampusMapa == 1 ? 'Campus Central' : 'Campus Sur',
-        'icon': Icons.domain_outlined,
-      },
       <String, Object>{
         'id': 'Administrativos',
         'label': 'Administrativos',
@@ -1951,18 +2051,8 @@ class _InteractiveCampusMapSectionState
           final String id = cat['id']! as String;
           final String label = cat['label']! as String;
           final IconData icon = cat['icon']! as IconData;
-          final bool esTimeBadge = id == 'TIME_BADGE';
-          final bool esSwitchCampus = id == 'CAMPUS_SWITCH';
-          final bool activo =
-              esTimeBadge || esSwitchCampus || (_categoriaFiltroActiva == id);
-
-          final Color bgColor = esTimeBadge
-              ? AppColors.accentCrimson
-              : (activo
-                    ? (esSwitchCampus
-                          ? AppColors.primaryNavy
-                          : AppColors.secondaryBlue)
-                    : chipBg);
+          final bool activo = _categoriaFiltroActiva == id;
+          final Color bgColor = activo ? AppColors.secondaryBlue : chipBg;
 
           return Material(
             color: bgColor,
@@ -1970,14 +2060,6 @@ class _InteractiveCampusMapSectionState
             child: InkWell(
               borderRadius: BorderRadius.circular(18),
               onTap: () {
-                if (esTimeBadge) {
-                  _enfocarRutaEnCamara(rutaActiva);
-                  return;
-                }
-                if (esSwitchCampus) {
-                  _cambiarCampusMapa(_idCampusMapa == 1 ? 2 : 1);
-                  return;
-                }
                 setState(() {
                   if (_categoriaFiltroActiva == id) {
                     _categoriaFiltroActiva = '';
@@ -2008,7 +2090,7 @@ class _InteractiveCampusMapSectionState
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      esSwitchCampus ? '$label (Cambiar)' : label,
+                      label,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -2165,7 +2247,6 @@ class _InteractiveCampusMapSectionState
 
   // Boton cuadrado inferior izquierdo para alternar entre vista Interactiva (por defecto) y Mapa Original
   Widget _buildGoogleMapsCapasSquareButton(bool isDark) {
-    final Color borderCol = isDark ? AppColors.darkBorder : Colors.white;
     final String etiquetaBoton = _modoVectorialEstilizado
         ? 'Original'
         : 'Interactivo';
@@ -2189,7 +2270,6 @@ class _InteractiveCampusMapSectionState
                 ? const Color(0xFF435426)
                 : AppColors.primaryNavy,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: borderCol, width: 2.2),
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(
@@ -2245,6 +2325,85 @@ class _InteractiveCampusMapSectionState
     );
   }
 
+  // Abre el panel de capas para mostrar u ocultar detalles del mapa segun lo necesite el alumno
+  void _abrirPanelCapas() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setSheetState) {
+            void actualizar(VoidCallback cambio) {
+              setState(cambio);
+              setSheetState(() {});
+            }
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const Text(
+                      'Capas del mapa',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Activa solo lo que necesitas para mantener el mapa limpio.',
+                      style: TextStyle(fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      value: _mostrarNumerosEdificios,
+                      onChanged: (bool valor) => actualizar(() {
+                        _mostrarNumerosEdificios = valor;
+                      }),
+                      title: const Text('Numeros de edificios'),
+                      subtitle: const Text('Se muestran al acercar el mapa'),
+                      secondary: const Icon(Icons.pin_outlined),
+                    ),
+                    SwitchListTile(
+                      value: _mostrarServiciosMapa,
+                      onChanged: (bool valor) => actualizar(() {
+                        _mostrarServiciosMapa = valor;
+                      }),
+                      title: const Text('Servicios y pictogramas'),
+                      subtitle: const Text(
+                        'Banos, cafeterias, estacionamientos y vigilancia',
+                      ),
+                      secondary: const Icon(Icons.category_outlined),
+                    ),
+                    SwitchListTile(
+                      value: _mostrarAccesosMapa,
+                      onChanged: (bool valor) => actualizar(() {
+                        _mostrarAccesosMapa = valor;
+                      }),
+                      title: const Text('Accesos oficiales'),
+                      secondary: const Icon(Icons.login),
+                    ),
+                    SwitchListTile(
+                      value: _mostrarEtiquetasMapa,
+                      onChanged: (bool valor) => actualizar(() {
+                        _mostrarEtiquetasMapa = valor;
+                      }),
+                      title: const Text('Etiquetas de calles y zonas'),
+                      secondary: const Icon(Icons.text_fields),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Controles inferiores derechos identicos a Google Maps: Circulo de Mi Ubicacion arriba y Pildora (+ / -) abajo
   Widget _buildGoogleMapsRightControls(
     bool isDark,
@@ -2259,6 +2418,42 @@ class _InteractiveCampusMapSectionState
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
+        Tooltip(
+          message: _idCampusMapa == 1
+              ? 'Cambiar a Campus Sur'
+              : 'Cambiar a Campus Central',
+          child: Material(
+            color: cardBg,
+            shape: CircleBorder(side: BorderSide(color: borderCol)),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => _cambiarCampusMapa(_idCampusMapa == 1 ? 2 : 1),
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: Icon(Icons.swap_horiz, size: 19, color: iconCol),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Tooltip(
+          message: 'Capas del mapa',
+          child: Material(
+            color: cardBg,
+            shape: CircleBorder(side: BorderSide(color: borderCol)),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _abrirPanelCapas,
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: Icon(Icons.layers_outlined, size: 19, color: iconCol),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Material(
           color: cardBg,
           shape: CircleBorder(side: BorderSide(color: borderCol)),
@@ -2354,6 +2549,14 @@ class _InteractiveCampusMapSectionState
         final String routeKey =
             '${rutaActiva.origen.idNodo}->${rutaActiva.destino.idNodo}';
 
+        final bool mostrarNumeros =
+            _mostrarNumerosEdificios && _escalaZoom >= 2.6;
+        final bool mostrarServicios =
+            _mostrarServiciosMapa && _escalaZoom >= 0.95;
+        final bool mostrarAccesos = _mostrarAccesosMapa && _escalaZoom >= 1.4;
+        final bool mostrarEtiquetas =
+            _mostrarEtiquetasMapa && _escalaZoom >= 1.2;
+
         final ui.Picture? pictureBase = _modoVectorialEstilizado
             ? _obtenerPictureBase(
                 isDark: isDark,
@@ -2363,6 +2566,10 @@ class _InteractiveCampusMapSectionState
                 imgH: imgH,
                 rutaActiva: rutaActiva,
                 edificiosCampus: edificiosCampus,
+                mostrarNumeros: mostrarNumeros,
+                mostrarServicios: mostrarServicios,
+                mostrarAccesos: mostrarAccesos,
+                mostrarEtiquetas: mostrarEtiquetas,
               )
             : null;
         final int anchoCacheMapa = math.min(
@@ -2505,6 +2712,17 @@ class _InteractiveCampusMapSectionState
                       ),
                     ),
                   ),
+                if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo)
+                  _buildRouteInfoBubble(
+                    rutaActiva: rutaActiva,
+                    offsetX: offsetX,
+                    offsetY: offsetY,
+                    imgW: imgW,
+                    imgH: imgH,
+                    maxW: availW,
+                    maxH: availH,
+                    isDark: isDark,
+                  ),
               ],
             ),
           ),
@@ -2548,6 +2766,10 @@ class _StaticMapPicturePainter extends CustomPainter {
 class _VectorCampusOverlayPainter extends CustomPainter {
   final int idCampus;
   final bool dibujarCapasBaseVectoriales;
+  final bool mostrarNumeros;
+  final bool mostrarServicios;
+  final bool mostrarAccesos;
+  final bool mostrarEtiquetas;
   final bool isDark;
   final List<EdificioMapaUaa> edificiosCampus;
   final RutaPeatonalUaa rutaActiva;
@@ -2563,6 +2785,10 @@ class _VectorCampusOverlayPainter extends CustomPainter {
   const _VectorCampusOverlayPainter({
     required this.idCampus,
     required this.dibujarCapasBaseVectoriales,
+    this.mostrarNumeros = false,
+    this.mostrarServicios = false,
+    this.mostrarAccesos = true,
+    this.mostrarEtiquetas = true,
     required this.isDark,
     required this.edificiosCampus,
     required this.rutaActiva,
@@ -3538,89 +3764,97 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     if (!esSur) {
       _dibujarBanderaMonumentalMexico(canvas, escala);
     }
-    _dibujarMarcadoresEntradasOficiales(canvas, esSur, escala);
+    if (mostrarAccesos) {
+      _dibujarMarcadoresEntradasOficiales(canvas, esSur, escala);
+    }
 
     // 8. Todos los Pictogramas Oficiales: Banos, Guardias/Vigilancia, Estacionamientos (E), Cafeterias, Bibliotecas y Auditorios
-    _dibujarPictogramasOficiales(canvas, esSur, escala);
+    if (mostrarServicios) {
+      _dibujarPictogramasOficiales(canvas, esSur, escala);
+    }
 
     // 9. Rotulos oficiales de vialidades, cisterna, pozo de agua, planta tratadora, subestacion CFE, etc.
-    final List<EtiquetaVectorialMapa> etiquetas = esSur
-        ? CampusVectorLayers.etiquetasSur
-        : CampusVectorLayers.etiquetasCentral;
+    if (mostrarEtiquetas) {
+      final List<EtiquetaVectorialMapa> etiquetas = esSur
+          ? CampusVectorLayers.etiquetasSur
+          : CampusVectorLayers.etiquetasCentral;
 
-    for (final EtiquetaVectorialMapa et in etiquetas) {
-      final double px = offsetX + et.posX * imgW;
-      final double py = offsetY + et.posY * imgH;
-      final TextPainter tp = TextPainter(
-        text: TextSpan(
-          text: et.texto,
-          style: TextStyle(
-            color: et.esVialidad
-                ? (isDark ? Colors.white70 : const Color(0xFF1E293B))
-                : const Color(0xFF0F172A),
-            fontSize: et.tamanoFuente * escala,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.2,
+      for (final EtiquetaVectorialMapa et in etiquetas) {
+        final double px = offsetX + et.posX * imgW;
+        final double py = offsetY + et.posY * imgH;
+        final TextPainter tp = TextPainter(
+          text: TextSpan(
+            text: et.texto,
+            style: TextStyle(
+              color: et.esVialidad
+                  ? (isDark ? Colors.white70 : const Color(0xFF1E293B))
+                  : const Color(0xFF0F172A),
+              fontSize: et.tamanoFuente * escala,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
+          textDirection: TextDirection.ltr,
+        )..layout();
 
-      canvas.save();
-      canvas.translate(px, py);
-      if (et.anguloGrados != 0.0) {
-        canvas.rotate(et.anguloGrados * math.pi / 180.0);
+        canvas.save();
+        canvas.translate(px, py);
+        if (et.anguloGrados != 0.0) {
+          canvas.rotate(et.anguloGrados * math.pi / 180.0);
+        }
+        tp.paint(canvas, Offset(-tp.width / 2.0, -tp.height / 2.0));
+        canvas.restore();
       }
-      tp.paint(canvas, Offset(-tp.width / 2.0, -tp.height / 2.0));
-      canvas.restore();
     }
 
     // 10. Numeros vectoriales nitidos sobre cada uno de los 154 / 19 edificios individuales
-    final double fontEdif = (esSur ? 11.8 : 7.6) * escala;
-    for (final EdificioMapaUaa edif in edificiosCampus) {
-      if (edif.codigo.startsWith('ACCESO')) {
-        continue;
+    if (mostrarNumeros) {
+      final double fontEdif = (esSur ? 11.8 : 7.6) * escala;
+      for (final EdificioMapaUaa edif in edificiosCampus) {
+        if (edif.codigo.startsWith('ACCESO')) {
+          continue;
+        }
+        final String numTexto = edif.codigo.replaceFirst('EDIF ', '');
+        final double px = offsetX + edif.posX * imgW;
+        final double py = offsetY + edif.posY * imgH;
+        final bool usarTextoOscuro = esSur || edif.zona.contains('Apoyo');
+
+        final TextPainter tpHalo = TextPainter(
+          text: TextSpan(
+            text: numTexto,
+            style: TextStyle(
+              fontSize: fontEdif,
+              fontWeight: FontWeight.w900,
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = esSur ? 1.8 : 2.2
+                ..color = usarTextoOscuro
+                    ? Colors.white.withValues(alpha: esSur ? 0.65 : 1.0)
+                    : const Color(0xFF0F172A),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        final TextPainter tpFill = TextPainter(
+          text: TextSpan(
+            text: numTexto,
+            style: TextStyle(
+              fontSize: fontEdif,
+              fontWeight: FontWeight.w900,
+              color: usarTextoOscuro ? const Color(0xFF1A1D24) : Colors.white,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        final Offset textOffset = Offset(
+          px - tpFill.width / 2.0,
+          py - tpFill.height / 2.0,
+        );
+        tpHalo.paint(canvas, textOffset);
+        tpFill.paint(canvas, textOffset);
       }
-      final String numTexto = edif.codigo.replaceFirst('EDIF ', '');
-      final double px = offsetX + edif.posX * imgW;
-      final double py = offsetY + edif.posY * imgH;
-      final bool usarTextoOscuro = esSur || edif.zona.contains('Apoyo');
-
-      final TextPainter tpHalo = TextPainter(
-        text: TextSpan(
-          text: numTexto,
-          style: TextStyle(
-            fontSize: fontEdif,
-            fontWeight: FontWeight.w900,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = esSur ? 1.8 : 2.2
-              ..color = usarTextoOscuro
-                  ? Colors.white.withValues(alpha: esSur ? 0.65 : 1.0)
-                  : const Color(0xFF0F172A),
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      final TextPainter tpFill = TextPainter(
-        text: TextSpan(
-          text: numTexto,
-          style: TextStyle(
-            fontSize: fontEdif,
-            fontWeight: FontWeight.w900,
-            color: usarTextoOscuro ? const Color(0xFF1A1D24) : Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      final Offset textOffset = Offset(
-        px - tpFill.width / 2.0,
-        py - tpFill.height / 2.0,
-      );
-      tpHalo.paint(canvas, textOffset);
-      tpFill.paint(canvas, textOffset);
     }
   }
 
@@ -3683,27 +3917,6 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         colorBorde: AppColors.primaryNavy,
         opacidadRelleno: 0.28,
         grosorBorde: 2.4,
-      );
-    }
-
-    // Solo resalta el poligono del edificio de origen cuando no se esta usando el punto GPS en vivo
-    if (posicionUsuarioEnVivo == null) {
-      _dibujarPoligonoEdificio(
-        canvas,
-        rutaActiva.origen,
-        colorBorde: AppColors.secondaryBlue,
-        opacidadRelleno: 0.30,
-        grosorBorde: 2.8,
-      );
-    }
-
-    if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo) {
-      _dibujarPoligonoEdificio(
-        canvas,
-        rutaActiva.destino,
-        colorBorde: AppColors.accentCrimson,
-        opacidadRelleno: 0.36,
-        grosorBorde: 3.2,
       );
     }
 
@@ -3794,7 +4007,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       final Paint bordeBlancoPaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 6.0
+        ..strokeWidth = 4.6
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       canvas.drawPath(rutaPath, bordeBlancoPaint);
@@ -3802,7 +4015,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       final Paint lineaRutaPaint = Paint()
         ..color = const Color(0xFF1A73E8)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.8
+        ..strokeWidth = 2.8
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       canvas.drawPath(rutaPath, lineaRutaPaint);
@@ -3834,7 +4047,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         Paint()
           ..color = Colors.white
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 5.8
+          ..strokeWidth = 4.4
           ..strokeCap = StrokeCap.round,
       );
       canvas.drawPath(
@@ -3842,7 +4055,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         Paint()
           ..color = const Color(0xFF1A73E8)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.6
+          ..strokeWidth = 2.6
           ..strokeCap = StrokeCap.round,
       );
     }
