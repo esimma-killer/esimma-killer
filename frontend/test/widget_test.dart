@@ -24,6 +24,21 @@ void main() {
       expect(find.text('Campus Central'), findsOneWidget);
       expect(find.text('Campus Sur'), findsOneWidget);
 
+      // Verifica que el selector de sesion muestre el nombre y no solo el rol
+      final String nombreSesion = const PortalRepository()
+          .obtenerPerfilesPrueba()
+          .first
+          .nombre;
+      expect(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (Widget widget) => widget is PopupMenuButton<SesionUsuarioUaa>,
+          ),
+          matching: find.text(nombreSesion),
+        ),
+        findsOneWidget,
+      );
+
       // Verifica que las flechas del carrusel esten ocultas mientras no este seleccionado
       expect(find.byIcon(Icons.chevron_left), findsNothing);
       expect(find.byIcon(Icons.chevron_right), findsNothing);
@@ -119,10 +134,40 @@ void main() {
   });
 
   testWidgets(
+    'Renderiza la landing en ancho de telefono sin desbordar el encabezado',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const EsimmaApp());
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final String nombreSesion = const PortalRepository()
+          .obtenerPerfilesPrueba()
+          .first
+          .nombre;
+      expect(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (Widget widget) => widget is PopupMenuButton<SesionUsuarioUaa>,
+          ),
+          matching: find.text(nombreSesion),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Renderiza el mapa interactivo y la capa base vectorial sin excepciones',
     (WidgetTester tester) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
         const MaterialApp(

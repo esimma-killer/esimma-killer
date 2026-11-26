@@ -846,8 +846,8 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     );
   }
 
-  // Selector compacto de sesion detectada para probar en vivo roles y campos null
-  Widget _buildSessionSelectorPill() {
+  // Selector de sesion que muestra el nombre del usuario y despliega su nombre e ID
+  Widget _buildSessionSelectorPill({bool compact = false}) {
     return PopupMenuButton<SesionUsuarioUaa>(
       tooltip: 'Cambiar sesion detectada (Alumno / Docente)',
       onSelected: _cambiarSesionDetectada,
@@ -859,32 +859,40 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
           );
         }).toList();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.slateBlue,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(
-              Icons.verified_user_outlined,
-              color: Colors.white,
-              size: 13,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              _sesionActiva.descripcionSesion,
-              style: const TextStyle(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: compact ? 210 : 280),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.slateBlue,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(
+                Icons.verified_user_outlined,
                 color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+                size: 13,
               ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(Icons.arrow_drop_down, color: Colors.white, size: 15),
-          ],
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  _sesionActiva.nombre,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(Icons.arrow_drop_down, color: Colors.white, size: 15),
+            ],
+          ),
         ),
       ),
     );
@@ -1043,52 +1051,55 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                     Image.asset(
                       AppConstants.faviconUaaAsset,
                       height: isMobile ? 34 : 44,
+                      width: isMobile ? 40 : 52,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.medium,
                     ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          'UNIVERSIDAD',
-                          style: TextStyle(
-                            fontSize: isMobile ? 9.5 : 12,
-                            fontWeight: FontWeight.w800,
-                            height: 1.05,
-                            letterSpacing: 0.5,
-                            color: isDark
-                                ? Colors.white
-                                : AppColors.primaryNavy,
+                    if (!isMobile) ...<Widget>[
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            'UNIVERSIDAD',
+                            style: TextStyle(
+                              fontSize: isMobile ? 9.5 : 12,
+                              fontWeight: FontWeight.w800,
+                              height: 1.05,
+                              letterSpacing: 0.5,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors.primaryNavy,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'AUTONOMA DE',
-                          style: TextStyle(
-                            fontSize: isMobile ? 9.5 : 12,
-                            fontWeight: FontWeight.w800,
-                            height: 1.05,
-                            letterSpacing: 0.5,
-                            color: isDark
-                                ? Colors.white
-                                : AppColors.primaryNavy,
+                          Text(
+                            'AUTONOMA DE',
+                            style: TextStyle(
+                              fontSize: isMobile ? 9.5 : 12,
+                              fontWeight: FontWeight.w800,
+                              height: 1.05,
+                              letterSpacing: 0.5,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors.primaryNavy,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'AGUASCALIENTES',
-                          style: TextStyle(
-                            fontSize: isMobile ? 9.5 : 12,
-                            fontWeight: FontWeight.w800,
-                            height: 1.05,
-                            letterSpacing: 0.5,
-                            color: isDark
-                                ? Colors.white
-                                : AppColors.primaryNavy,
+                          Text(
+                            'AGUASCALIENTES',
+                            style: TextStyle(
+                              fontSize: isMobile ? 9.5 : 12,
+                              fontWeight: FontWeight.w800,
+                              height: 1.05,
+                              letterSpacing: 0.5,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors.primaryNavy,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1102,7 +1113,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      _buildSessionSelectorPill(),
+                      _buildSessionSelectorPill(compact: true),
                       const SizedBox(height: 6),
                       Wrap(
                         alignment: WrapAlignment.end,
@@ -1365,7 +1376,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Sesion: ${_sesionActiva.descripcionSesion}',
+                            'Sesion: ${_sesionActiva.nombre}',
                             style: const TextStyle(
                               color: AppColors.footerAccentBlue,
                               fontSize: 12.5,
@@ -1655,6 +1666,29 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
 
   // Pie de pagina oficial UAA con logotipo transparente y lema Se Lumen Proferre
   Widget _buildOfficialUaaFooter(bool isMobile, double horizontalPadding) {
+    const Widget marcaTexto = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'UNIVERSIDAD AUTONOMA DE AGUASCALIENTES',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
+        ),
+        SizedBox(height: 2),
+        Text(
+          'Se Lumen Proferre',
+          style: TextStyle(
+            color: AppColors.footerAccentBlue,
+            fontStyle: FontStyle.italic,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
     return Container(
       color: AppColors.darkNavyFooter,
       padding: EdgeInsets.symmetric(
@@ -1787,29 +1821,10 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                         filterQuality: FilterQuality.medium,
                       ),
                       const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'UNIVERSIDAD AUTONOMA DE AGUASCALIENTES',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Se Lumen Proferre',
-                            style: TextStyle(
-                              color: AppColors.footerAccentBlue,
-                              fontStyle: FontStyle.italic,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                      if (isMobile)
+                        const Flexible(child: marcaTexto)
+                      else
+                        marcaTexto,
                     ],
                   ),
                   const Column(
