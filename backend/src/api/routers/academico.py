@@ -19,11 +19,14 @@ from src.domain.academico import Materia
 from src.domain.enums import CampusUAA
 from src.domain.exceptions import ValidacionDominioError
 from src.domain.personas import Alumno
+from src.security.models import AuthUser
+from src.security.rbac import require_roles
 from src.services.inscripcion_service import InscripcionService
 
 router = APIRouter(prefix="/academico", tags=["Gestion Academica e Inscripciones"])
 
 InscripcionServiceDep = Annotated[InscripcionService, Depends(get_inscripcion_service)]
+CoordinadorDep = Annotated[AuthUser, Depends(require_roles("coordinador"))]
 
 
 @router.get(
@@ -186,6 +189,7 @@ def registrar_entrega(
 )
 def consultar_auditoria_academica(
     service: InscripcionServiceDep,
+    _usuario: CoordinadorDep,
 ) -> list[dict[str, Any]]:
-    """Devuelve los registros de auditoria generados en el bloque finally."""
+    """Devuelve la auditoria solo a coordinadores autenticados."""
     return service.logs_actividad

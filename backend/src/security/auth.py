@@ -1,28 +1,34 @@
-"""Utilidades de contrasenas Argon2 y tokens JWT para el Issue #19."""
+"""Utilidades de contrasenas bcrypt y tokens JWT para el Issue #19."""
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
 import jwt
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
 
 from src.core.config import Settings
 
 
-_password_hasher = PasswordHasher()
+_BCRYPT_MAX_PASSWORD_BYTES = 72
+
+
+def _password_bytes(password: str) -> bytes:
+    encoded = password.encode("utf-8")
+    if len(encoded) > _BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError("La contrasena excede el limite seguro de bcrypt (72 bytes).")
+    return encoded
 
 
 def hash_password(password: str) -> str:
-    """Genera un hash Argon2 seguro para una contrasena."""
-    return _password_hasher.hash(password)
+    """Genera un hash bcrypt seguro para una contrasena."""
+    return bcrypt.hashpw(_password_bytes(password), bcrypt.gensalt()).decode("ascii")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
     """Verifica una contrasena sin exponer el valor original."""
     try:
-        return _password_hasher.verify(password_hash, password)
-    except VerifyMismatchError:
+        return bcrypt.checkpw(_password_bytes(password), password_hash.encode("ascii"))
+    except (ValueError, TypeError):
         return False
 
 
