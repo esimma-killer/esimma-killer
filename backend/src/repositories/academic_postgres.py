@@ -20,16 +20,15 @@ class AcademicPostgresRepository:
         id_curso: int,
         id_inscripcion: int,
     ) -> dict[str, Any]:
-        """Inserta una inscripcion y confirma o revierte toda la transaccion."""
+        """Registra una inscripcion con validacion de cupo en una transaccion."""
         sql = """
-            INSERT INTO inscripciones
-                (id_campus, id_inscripcion, id_alumno, id_curso, fecha_inscripcion)
-            VALUES
-                (%s, %s, %s, %s, %s)
+            CALL registrar_inscripcion(
+                %s::SMALLINT, %s::BIGINT, %s::BIGINT, %s::BIGINT
+            )
         """
         fecha = datetime.now(UTC)
         with self._postgres.transaction(id_campus) as connection, connection.cursor() as cursor:
-            cursor.execute(sql, (id_campus, id_inscripcion, id_alumno, id_curso, fecha))
+            cursor.execute(sql, (id_campus, id_inscripcion, id_alumno, id_curso))
         return {
             "id_campus": id_campus,
             "id_inscripcion": id_inscripcion,
@@ -85,4 +84,37 @@ class AcademicPostgresRepository:
             "archivo_url": archivo_url,
             "hash_sha256": hash_sha256,
             "estado_entrega": estado_entrega,
+        }
+
+    def procesar_pago(
+        self,
+        *,
+        id_campus: int,
+        id_pago: int,
+        id_usuario: int,
+        concepto: str,
+        monto: float,
+        aprobado: bool,
+    ) -> dict[str, Any]:
+        """Registra un pago aprobado; si se cancela, la transaccion se revierte."""
+        sql = """
+            CALL registrar_pago(
+                %s::BIGINT, %s::BIGINT, %s::SMALLINT,
+                %s::VARCHAR, %s::NUMERIC, %s::BOOLEAN
+            )
+        """
+        fecha = datetime.now(UTC)
+        with self._postgres.transaction(id_campus) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                sql,
+                (id_pago, id_usuario, id_campus, concepto, monto, aprobado),
+            )
+        return {
+            "id_pago": id_pago,
+            "id_usuario": id_usuario,
+            "id_campus": id_campus,
+            "concepto": concepto,
+            "monto": monto,
+            "estado": "PAGADO",
+            "fecha_pago": fecha.isoformat(),
         }
