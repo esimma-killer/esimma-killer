@@ -546,7 +546,7 @@ class CampusVectorLayers {
     IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.558, 0.537),
     IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.532, 0.795),
     IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.208, 0.668),
-    IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.822, 0.878),
+    IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.824, 0.886),
     IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.948, 0.542),
     IconoVectorialMapa(TipoIconoMapaUaa.cafeteria, 0.398, 0.268),
     IconoVectorialMapa(TipoIconoMapaUaa.biblioteca, 0.478, 0.768),
@@ -591,7 +591,7 @@ class CampusVectorLayers {
   // Rotulos oficiales completos de vialidades e infraestructura del plano DGIU de Campus Central
   static const List<EtiquetaVectorialMapa> etiquetasCentral = <EtiquetaVectorialMapa>[
     EtiquetaVectorialMapa(texto: 'Av. Universidad', posX: 0.391, posY: 0.969, tamanoFuente: 9.5, esVialidad: true),
-    EtiquetaVectorialMapa(texto: 'Av. Aguascalientes Norte', posX: 0.812, posY: 0.710, anguloGrados: -73.0, tamanoFuente: 9.5, esVialidad: true),
+    EtiquetaVectorialMapa(texto: 'Av. Aguascalientes Norte', posX: 0.788, posY: 0.785, anguloGrados: -73.0, tamanoFuente: 9.5, esVialidad: true),
     EtiquetaVectorialMapa(texto: 'Calle Guadalupe Gonzalez', posX: 0.095, posY: 0.805, anguloGrados: -68.0, tamanoFuente: 9.0, esVialidad: true),
     EtiquetaVectorialMapa(texto: 'Calle Guadalupe Gonzalez', posX: 0.308, posY: 0.265, anguloGrados: -68.0, tamanoFuente: 9.0, esVialidad: true),
     EtiquetaVectorialMapa(texto: 'RIO SAN PEDRO', posX: 0.905, posY: 0.246, tamanoFuente: 8.5, esVialidad: true),

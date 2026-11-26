@@ -13,10 +13,10 @@ class AppConstants {
   static const String apiBaseUrl = 'http://localhost:8000/api/v1';
   static const String appVersion = '1.0.0';
 
-  // Rutas de recursos graficos institucionales con fondo transparente en alta calidad
-  static const String logoUaaLightAsset = 'assets/images/logo_uaa(calidad).png';
-  static const String logoUaaDarkAsset = 'assets/images/logo_uaa(calidad).png';
-  static const String faviconUaaAsset = 'assets/images/logo_uaa(calidad).png';
+  // Rutas de recursos graficos institucionales optimizadas para pantalla
+  static const String logoUaaLightAsset = 'assets/images/logo_uaa_emblem.png';
+  static const String logoUaaDarkAsset = 'assets/images/logo_uaa_emblem.png';
+  static const String faviconUaaAsset = 'assets/images/logo_uaa_emblem.png';
 
   // Mapas oficiales de alta resolucion sin leyendas laterales para abarcar toda la pantalla
   static const String mapaOficialCentralAsset =

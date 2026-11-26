@@ -59,9 +59,9 @@ Desde el directorio `frontend/`:
    ```
 
 4. **Ejecutar la aplicacion por plataforma:**
-   - **Web (Chrome):**
+   - **Web (Chrome, solo desarrollo):**
      ```bash
-     flutter run -d chrome
+     flutter run -d chrome --web-hostname=127.0.0.1 --web-port=8080
      ```
    - **Escritorio (Windows):**
      ```bash
@@ -71,3 +71,42 @@ Desde el directorio `frontend/`:
      ```bash
      flutter run -d android
      ```
+
+---
+
+## 4. Pruebas web en cualquier navegador o dispositivo
+
+El modo `flutter run -d chrome` depende del depurador DWDS y solo funciona en la ventana de Chrome que abre Flutter. Para probar en Edge, Firefox, celular o cualquier dispositivo usa siempre un build release:
+
+```bash
+flutter build web --release --no-web-resources-cdn
+```
+
+Despues sirve la carpeta `build/web` con un servidor estatico:
+
+```bash
+cd build/web
+python -m http.server 8090
+```
+
+Abre `http://127.0.0.1:8090` en el navegador que quieras. Este build no usa DWDS, no registra service worker y sirve CanvasKit localmente.
+
+Recomendaciones para desarrollo web:
+
+- No refresques la pagina de `flutter run -d chrome` mientras compila; usa `R` para hot restart.
+- No abras la URL de desarrollo en otro navegador ni en otra ventana; el modo debug se queda en blanco.
+- En Windows, habilita el Modo para desarrolladores para que Flutter pueda crear los enlaces de los plugins.
+- En Android, acepta el aviso de depuracion USB del telefono antes de ejecutar `flutter devices`.
+
+---
+
+## 5. Geolocalizacion
+
+El mapa usa `geolocator` para el GPS real en Android, Windows, Linux y Web.
+
+- **Android:** requiere los permisos `ACCESS_COARSE_LOCATION` y `ACCESS_FINE_LOCATION`, ya declarados en `android/app/src/main/AndroidManifest.xml`.
+- **Web:** funciona en `localhost` o bajo HTTPS. En HTTP remoto el navegador bloquea la ubicacion y la app pasa a modo manual.
+- **Windows:** requiere que el servicio de ubicacion del sistema este activo.
+- **Linux:** usa Geoclue cuando esta disponible. Si no lo esta, la app continua en modo manual.
+
+Si el usuario niega el permiso o el GPS no esta disponible, el mapa conserva el modo manual para elegir origen y destino.

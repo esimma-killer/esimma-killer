@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/screens/landing_page_screen.dart';
 
 // Punto de entrada principal de la aplicacion Flutter
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Limita la memoria de imagenes decodificadas para evitar picos en equipos con poca RAM
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 64 << 20;
   runApp(const EsimmaApp());
 }
 

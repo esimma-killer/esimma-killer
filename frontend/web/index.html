@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <base href="$FLUTTER_BASE_HREF">
 
@@ -18,8 +18,168 @@
 
   <title>UAA | Alumno</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: #ffffff;
+    }
+
+    #uaa-carga {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      color: #15325e;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    #uaa-carga img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      margin-bottom: 18px;
+    }
+
+    #uaa-carga .titulo {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 14px;
+    }
+
+    #uaa-carga .barra {
+      width: 180px;
+      height: 3px;
+      border-radius: 2px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+
+    #uaa-carga .barra span {
+      display: block;
+      width: 40%;
+      height: 100%;
+      background: #15325e;
+      animation: uaa-carga 1.2s ease-in-out infinite;
+    }
+
+    @keyframes uaa-carga {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(350%);
+      }
+    }
+
+    #uaa-error {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #f7f9fc;
+      color: #15325e;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      text-align: center;
+    }
+
+    #uaa-error h1 {
+      font-size: 19px;
+      margin: 0 0 8px;
+    }
+
+    #uaa-error p {
+      font-size: 14px;
+      margin: 0 0 18px;
+      color: #475569;
+    }
+
+    #uaa-error button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 18px;
+      background: #15325e;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
+  <!-- Pantalla de carga institucional mientras Flutter inicializa -->
+  <div id="uaa-carga">
+    <img src="favicon.png" alt="Universidad Autonoma de Aguascalientes">
+    <div class="titulo">Portal Academico UAA</div>
+    <div class="barra"><span></span></div>
+  </div>
+
+  <!-- Aviso de respaldo si la aplicacion no termina de iniciar -->
+  <div id="uaa-error">
+    <div>
+      <h1>No se pudo iniciar el portal</h1>
+      <p>Verifica tu conexion a internet y vuelve a cargar la pagina.</p>
+      <button type="button" onclick="window.location.reload()">Recargar</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var carga = document.getElementById('uaa-carga');
+      var error = document.getElementById('uaa-error');
+      var terminado = false;
+
+      function quitarCarga() {
+        if (terminado) {
+          return;
+        }
+        terminado = true;
+        if (carga && carga.parentNode) {
+          carga.parentNode.removeChild(carga);
+        }
+        if (error) {
+          error.style.display = 'none';
+        }
+      }
+
+      function mostrarError() {
+        if (terminado) {
+          return;
+        }
+        if (error) {
+          error.style.display = 'flex';
+        }
+      }
+
+      var observador = new MutationObserver(function () {
+        if (
+          document.querySelector('flutter-view') ||
+          document.querySelector('flt-glass-pane')
+        ) {
+          quitarCarga();
+          observador.disconnect();
+        }
+      });
+      observador.observe(document.body, { childList: true, subtree: true });
+
+      setTimeout(function () {
+        if (!terminado) {
+          mostrarError();
+        }
+      }, 20000);
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

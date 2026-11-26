@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/portal_repository.dart';
@@ -48,34 +49,12 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   // Controlador de scroll para volver arriba al cambiar de ventana
   final ScrollController _scrollController = ScrollController();
 
-  // Bandera para precargar los recursos visuales en memoria una sola vez
-  bool _recursosPrecargados = false;
-
   @override
   void initState() {
     super.initState();
     _perfilesDisponibles = widget.repository.obtenerPerfilesPrueba();
     _sesionActiva = _perfilesDisponibles.first;
     _idCampusSeleccionado = _sesionActiva.idCampusOrigen;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_recursosPrecargados) {
-      _recursosPrecargados = true;
-      precacheImage(const AssetImage(AppConstants.logoUaaLightAsset), context);
-      precacheImage(const AssetImage(AppConstants.logoUaaDarkAsset), context);
-      precacheImage(const AssetImage(AppConstants.faviconUaaAsset), context);
-      precacheImage(
-        const AssetImage(AppConstants.mapaOficialCentralAsset),
-        context,
-      );
-      precacheImage(
-        const AssetImage(AppConstants.mapaOficialSurAsset),
-        context,
-      );
-    }
   }
 
   @override
@@ -135,8 +114,8 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
       context: context,
       builder: (BuildContext ctx) {
         String filtro = '';
-        final List<MapEntry<String, SeccionPortalUaa>> catalogo =
-            <MapEntry<String, SeccionPortalUaa>>[
+        final List<MapEntry<String, SeccionPortalUaa>>
+        catalogo = <MapEntry<String, SeccionPortalUaa>>[
           const MapEntry<String, SeccionPortalUaa>(
             'Mapa: Edificio 1-A - Cajas y Control Escolar (Campus Central)',
             SeccionPortalUaa.mapaUniversitario,
@@ -194,8 +173,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                     TextField(
                       autofocus: true,
                       decoration: const InputDecoration(
-                        hintText:
-                            'Escribe un edificio, transporte, tramite o servicio...',
+                        hintText: 'Escribe un edificio, transporte, tramite o servicio...',
                         prefixIcon: Icon(Icons.search),
                         border: OutlineInputBorder(),
                       ),
@@ -248,15 +226,17 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final Color secondaryTextColor =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final Color secondaryTextColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isPcOrLaptop = screenWidth >= 1024;
     final bool isMobile = screenWidth < 700;
     final bool isTablet = screenWidth >= 700 && screenWidth < 1024;
-    final double horizontalPadding =
-        isMobile ? 16 : (screenWidth * 0.035).clamp(24.0, 56.0);
+    final double horizontalPadding = isMobile
+        ? 16
+        : (screenWidth * 0.035).clamp(24.0, 56.0);
 
     return Scaffold(
       drawer: !isPcOrLaptop ? _buildHamburgerDrawer(isDark) : null,
@@ -290,23 +270,21 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                             duration: const Duration(milliseconds: 320),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (
-                              Widget child,
-                              Animation<double> animation,
-                            ) {
-                              final Animation<Offset> slideAnimation =
-                                  Tween<Offset>(
-                                begin: const Offset(0, 0.015),
-                                end: Offset.zero,
-                              ).animate(animation);
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: slideAnimation,
-                                  child: child,
-                                ),
-                              );
-                            },
+                            transitionBuilder:
+                                (Widget child, Animation<double> animation) {
+                                  final Animation<Offset> slideAnimation =
+                                      Tween<Offset>(
+                                        begin: const Offset(0, 0.015),
+                                        end: Offset.zero,
+                                      ).animate(animation);
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: slideAnimation,
+                                      child: child,
+                                    ),
+                                  );
+                                },
                             child: KeyedSubtree(
                               key: ValueKey<SeccionPortalUaa>(_seccionActiva),
                               child: _buildActiveWindowContent(
@@ -407,11 +385,11 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
         .obtenerEspaciosDisponibles(idCampusFiltro: _idCampusSeleccionado);
     final List<MenuComedorUaa> menusComedor = widget.repository
         .obtenerMenusComedor(idCampusFiltro: _idCampusSeleccionado);
-    final List<ConvocatoriaUaa> convocatorias =
-        widget.repository.obtenerConvocatoriasVigentes(
-      esProfesor: _sesionActiva.esProfesor,
-      idCampusFiltro: _idCampusSeleccionado,
-    );
+    final List<ConvocatoriaUaa> convocatorias = widget.repository
+        .obtenerConvocatoriasVigentes(
+          esProfesor: _sesionActiva.esProfesor,
+          idCampusFiltro: _idCampusSeleccionado,
+        );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -535,9 +513,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               _buildSecondaryWindowTopBar(
-                titulo: 'DIRECTORIO DE SERVICIOS EN CAMPUS Y HORARIOS DE ATENCION',
-                subtitulo:
-                    'Consulta horarios de ventanilla, ubicaciones exactas, extensiones telefonicas y disponibilidad de servicios universitarios.',
+                titulo:
+                    'DIRECTORIO DE SERVICIOS EN CAMPUS Y HORARIOS DE ATENCION',
+                subtitulo: 'Consulta horarios de ventanilla, ubicaciones exactas, extensiones telefonicas y disponibilidad de servicios universitarios.',
                 theme: theme,
                 secondaryTextColor: secondaryTextColor,
               ),
@@ -576,8 +554,8 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     required Color secondaryTextColor,
     required double horizontalPadding,
   }) {
-    final List<RutaTransporteUaa> rutasTransporte =
-        widget.repository.obtenerRutasTransporte();
+    final List<RutaTransporteUaa> rutasTransporte = widget.repository
+        .obtenerRutasTransporte();
 
     return Center(
       child: ConstrainedBox(
@@ -592,8 +570,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             children: <Widget>[
               _buildSecondaryWindowTopBar(
                 titulo: 'TRANSPORTE UNIVERSITARIO GALLOS Y RUTAS INTERCAMPUS',
-                subtitulo:
-                    'Consulta las proximas salidas de autobuses entre Campus Central y Campus Sur, circuito interno y paraderos oficiales.',
+                subtitulo: 'Consulta las proximas salidas de autobuses entre Campus Central y Campus Sur, circuito interno y paraderos oficiales.',
                 theme: theme,
                 secondaryTextColor: secondaryTextColor,
               ),
@@ -613,8 +590,8 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     required bool isDark,
     required double horizontalPadding,
   }) {
-    final List<ActividadUniversitaria> actividades =
-        widget.repository.obtenerActividades();
+    final List<ActividadUniversitaria> actividades = widget.repository
+        .obtenerActividades();
 
     return Center(
       child: ConstrainedBox(
@@ -629,8 +606,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             children: <Widget>[
               _buildSecondaryWindowTopBar(
                 titulo: 'CARTELERA DE ACTIVIDADES, CREDITOS HUMANISTICOS Y DEPORTES',
-                subtitulo:
-                    'Inscribete a eventos culturales, torneos deportivos Gallos, talleres con valor curricular y cursos de actualizacion docente.',
+                subtitulo: 'Inscribete a eventos culturales, torneos deportivos Gallos, talleres con valor curricular y cursos de actualizacion docente.',
                 theme: theme,
                 secondaryTextColor: secondaryTextColor,
               ),
@@ -654,12 +630,12 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     required bool isMobile,
     required double horizontalPadding,
   }) {
-    final List<EventoCalendario> calendario =
-        widget.repository.obtenerCalendarioEscolar();
-    final List<CentroAcademicoUaa> centros =
-        widget.repository.obtenerCentrosAcademicos();
-    final List<GuiaTramiteFaqUaa> guiasFaq =
-        widget.repository.obtenerGuiasTramitesFaq();
+    final List<EventoCalendario> calendario = widget.repository
+        .obtenerCalendarioEscolar();
+    final List<CentroAcademicoUaa> centros = widget.repository
+        .obtenerCentrosAcademicos();
+    final List<GuiaTramiteFaqUaa> guiasFaq = widget.repository
+        .obtenerGuiasTramitesFaq();
 
     return Center(
       child: ConstrainedBox(
@@ -673,9 +649,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               _buildSecondaryWindowTopBar(
-                titulo: 'CALENDARIO ESCOLAR, CENTROS ACADEMICOS Y GUIA DE TRAMITES',
-                subtitulo:
-                    'Fechas oficiales del semestre 2026-2, directorio de Decanatos y guia paso a paso para tramites frecuentes.',
+                titulo:
+                    'CALENDARIO ESCOLAR, CENTROS ACADEMICOS Y GUIA DE TRAMITES',
+                subtitulo: 'Fechas oficiales del semestre 2026-2, directorio de Decanatos y guia paso a paso para tramites frecuentes.',
                 theme: theme,
                 secondaryTextColor: secondaryTextColor,
               ),
@@ -686,8 +662,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                   children: <Widget>[
                     SchoolCalendarCard(
                       eventos: calendario,
-                      onVerCalendarioCompleto: () =>
-                          _mostrarAvisoAcceso('Descarga de Calendario Oficial PDF'),
+                      onVerCalendarioCompleto: () => _mostrarAvisoAcceso(
+                        'Descarga de Calendario Oficial PDF',
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _buildCentersDirectoryCard(
@@ -749,8 +726,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
               'DIRECTORIO DE CENTROS ACADEMICOS (DECANATOS)',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color:
-                    isDark ? AppColors.footerAccentBlue : AppColors.primaryNavy,
+                color: isDark
+                    ? AppColors.footerAccentBlue
+                    : AppColors.primaryNavy,
               ),
             ),
             const SizedBox(height: 16),
@@ -877,9 +855,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
         return _perfilesDisponibles.map((SesionUsuarioUaa sesion) {
           return PopupMenuItem<SesionUsuarioUaa>(
             value: sesion,
-            child: Text(
-              '${sesion.nombre} (${sesion.identificador})',
-            ),
+            child: Text('${sesion.nombre} (${sesion.identificador})'),
           );
         }).toList();
       },
@@ -907,11 +883,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(
-              Icons.arrow_drop_down,
-              color: Colors.white,
-              size: 15,
-            ),
+            const Icon(Icons.arrow_drop_down, color: Colors.white, size: 15),
           ],
         ),
       ),
@@ -942,14 +914,8 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
           value: 'Entrega de Tareas (Aula Virtual)',
           child: Text('Entrega de Tareas'),
         ),
-        PopupMenuItem<String>(
-          value: 'MAPA',
-          child: Text('Mapa Universitario'),
-        ),
-        PopupMenuItem<String>(
-          value: 'TRANSPORTE',
-          child: Text('Transporte'),
-        ),
+        PopupMenuItem<String>(value: 'MAPA', child: Text('Mapa Universitario')),
+        PopupMenuItem<String>(value: 'TRANSPORTE', child: Text('Transporte')),
         PopupMenuItem<String>(
           value: 'SERVICIOS',
           child: Text('Servicios y Horarios'),
@@ -1003,11 +969,13 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   // Boton circular para alternar de forma instantanea entre modo claro y oscuro
   Widget _buildThemeToggleButton(bool isDark) {
     return IconButton(
-      tooltip:
-          widget.isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+      tooltip: widget.isDarkMode
+          ? 'Cambiar a modo claro'
+          : 'Cambiar a modo oscuro',
       style: IconButton.styleFrom(
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceMuted : AppColors.lightSurfaceMuted,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceMuted
+            : AppColors.lightSurfaceMuted,
         side: BorderSide(
           color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
@@ -1057,13 +1025,10 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                       tween: Tween<double>(begin: 0.85, end: 1.0),
                       duration: const Duration(milliseconds: 240),
                       curve: Curves.easeOutBack,
-                      builder: (
-                        BuildContext context,
-                        double scale,
-                        Widget? child,
-                      ) {
-                        return Transform.scale(scale: scale, child: child);
-                      },
+                      builder:
+                          (BuildContext context, double scale, Widget? child) {
+                            return Transform.scale(scale: scale, child: child);
+                          },
                       child: const Icon(Icons.menu),
                     ),
                     tooltip: 'Abrir menu de secciones',
@@ -1093,7 +1058,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                             fontWeight: FontWeight.w800,
                             height: 1.05,
                             letterSpacing: 0.5,
-                            color: isDark ? Colors.white : AppColors.primaryNavy,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.primaryNavy,
                           ),
                         ),
                         Text(
@@ -1103,7 +1070,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                             fontWeight: FontWeight.w800,
                             height: 1.05,
                             letterSpacing: 0.5,
-                            color: isDark ? Colors.white : AppColors.primaryNavy,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.primaryNavy,
                           ),
                         ),
                         Text(
@@ -1113,7 +1082,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                             fontWeight: FontWeight.w800,
                             height: 1.05,
                             letterSpacing: 0.5,
-                            color: isDark ? Colors.white : AppColors.primaryNavy,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.primaryNavy,
                           ),
                         ),
                       ],
@@ -1256,31 +1227,31 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   Widget _buildNavyNavigationBar() {
     final List<MapEntry<String, SeccionPortalUaa>> secciones =
         <MapEntry<String, SeccionPortalUaa>>[
-      const MapEntry<String, SeccionPortalUaa>(
-        'INICIO',
-        SeccionPortalUaa.inicio,
-      ),
-      const MapEntry<String, SeccionPortalUaa>(
-        'MAPA UNIVERSITARIO',
-        SeccionPortalUaa.mapaUniversitario,
-      ),
-      const MapEntry<String, SeccionPortalUaa>(
-        'SERVICIOS Y HORARIOS',
-        SeccionPortalUaa.serviciosHorarios,
-      ),
-      const MapEntry<String, SeccionPortalUaa>(
-        'TRANSPORTE UNIVERSITARIO',
-        SeccionPortalUaa.transporteUniversitario,
-      ),
-      const MapEntry<String, SeccionPortalUaa>(
-        'ACTIVIDADES Y CREDITOS',
-        SeccionPortalUaa.actividadesCreditos,
-      ),
-      const MapEntry<String, SeccionPortalUaa>(
-        'CALENDARIO, CENTROS Y FAQ',
-        SeccionPortalUaa.calendarioDirectorio,
-      ),
-    ];
+          const MapEntry<String, SeccionPortalUaa>(
+            'INICIO',
+            SeccionPortalUaa.inicio,
+          ),
+          const MapEntry<String, SeccionPortalUaa>(
+            'MAPA UNIVERSITARIO',
+            SeccionPortalUaa.mapaUniversitario,
+          ),
+          const MapEntry<String, SeccionPortalUaa>(
+            'SERVICIOS Y HORARIOS',
+            SeccionPortalUaa.serviciosHorarios,
+          ),
+          const MapEntry<String, SeccionPortalUaa>(
+            'TRANSPORTE UNIVERSITARIO',
+            SeccionPortalUaa.transporteUniversitario,
+          ),
+          const MapEntry<String, SeccionPortalUaa>(
+            'ACTIVIDADES Y CREDITOS',
+            SeccionPortalUaa.actividadesCreditos,
+          ),
+          const MapEntry<String, SeccionPortalUaa>(
+            'CALENDARIO, CENTROS Y FAQ',
+            SeccionPortalUaa.calendarioDirectorio,
+          ),
+        ];
 
     return Container(
       width: double.infinity,
@@ -1297,10 +1268,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 5,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: activa ? AppColors.secondaryBlue : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
@@ -1442,8 +1410,8 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                     decoration: BoxDecoration(
                       color: activa
                           ? (isDark
-                              ? AppColors.darkSurfaceMuted
-                              : const Color(0xFFE3ECF8))
+                                ? AppColors.darkSurfaceMuted
+                                : const Color(0xFFE3ECF8))
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -1452,15 +1420,16 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                         item['icono']! as IconData,
                         color: activa
                             ? (isDark
-                                ? AppColors.footerAccentBlue
-                                : AppColors.primaryNavy)
+                                  ? AppColors.footerAccentBlue
+                                  : AppColors.primaryNavy)
                             : null,
                       ),
                       title: Text(
                         item['titulo']! as String,
                         style: TextStyle(
-                          fontWeight:
-                              activa ? FontWeight.w800 : FontWeight.w500,
+                          fontWeight: activa
+                              ? FontWeight.w800
+                              : FontWeight.w500,
                         ),
                       ),
                       selected: activa,
@@ -1601,11 +1570,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        Container(
-          width: 72,
-          height: 3,
-          color: AppColors.accentCrimson,
-        ),
+        Container(width: 72, height: 3, color: AppColors.accentCrimson),
       ],
     );
   }
@@ -1628,10 +1593,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: <Widget>[
-                Image.asset(
-                  aviso.imagenAsset,
-                  fit: BoxFit.cover,
-                ),
+                Image.asset(aviso.imagenAsset, fit: BoxFit.cover),
                 Align(
                   alignment: Alignment.topLeft,
                   child: Padding(
@@ -1719,13 +1681,15 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                       ),
                       MapEntry<String, VoidCallback>(
                         'Mapa Universitario Interactivo',
-                        () =>
-                            _navegarASeccion(SeccionPortalUaa.mapaUniversitario),
+                        () => _navegarASeccion(
+                          SeccionPortalUaa.mapaUniversitario,
+                        ),
                       ),
                       MapEntry<String, VoidCallback>(
                         'Directorio de Servicios y Horarios',
-                        () =>
-                            _navegarASeccion(SeccionPortalUaa.serviciosHorarios),
+                        () => _navegarASeccion(
+                          SeccionPortalUaa.serviciosHorarios,
+                        ),
                       ),
                       MapEntry<String, VoidCallback>(
                         'Transporte Universitario Gallos',
@@ -1791,8 +1755,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                       ),
                       MapEntry<String, VoidCallback>(
                         'Unidad Medico Didactica (UMD)',
-                        () =>
-                            _navegarASeccion(SeccionPortalUaa.serviciosHorarios),
+                        () => _navegarASeccion(
+                          SeccionPortalUaa.serviciosHorarios,
+                        ),
                       ),
                       MapEntry<String, VoidCallback>(
                         'Buzon de Quejas y Sugerencias',
@@ -1852,18 +1817,12 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                     children: <Widget>[
                       Text(
                         'Av. Universidad #940, Ciudad Universitaria, C.P. 20100, Aguascalientes, Ags. Mexico.',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 12),
                       ),
                       SizedBox(height: 4),
                       Text(
                         'Tel. conmutador: 449 910 74 00 | Buzon de quejas y sugerencias',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1902,10 +1861,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                 onTap: item.value,
                 child: Text(
                   item.key,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ),
             );

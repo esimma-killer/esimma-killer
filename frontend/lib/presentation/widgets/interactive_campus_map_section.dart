@@ -1,7 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_constants.dart';
+import '../../core/services/geolocation_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/campus_vector_layers.dart';
 import '../../data/repositories/portal_repository.dart';
@@ -38,6 +43,28 @@ class _InteractiveCampusMapSectionState
   bool _modoVectorialEstilizado = true;
   bool _zoomInicialAplicado = false;
 
+  // Estado de geolocalizacion automatica en tiempo real y recorte progresivo de ruta
+  final GeolocationServiceUaa _geolocationService = GeolocationServiceUaa();
+  StreamSubscription<LecturaGpsUsuario>? _gpsSubscription;
+  Timer? _timerSimulacionCaminata;
+  EstadoUbicacionMapaUaa _estadoUbicacion =
+      EstadoUbicacionMapaUaa.buscandoPermiso;
+  String _mensajeEstadoUbicacion =
+      'Detectando tu ubicacion actual automaticamente...';
+  double _distanciaFueraCampusMetros = 0.0;
+  double _progresoRecorridoUsuario = 0.0;
+  PuntoMapaUaa? _posicionUsuarioEnVivo;
+  bool _ocultarBannerUbicacion = false;
+  bool _modoMoverGpsConClic = false;
+  LecturaGpsUsuario? _ultimaLecturaGps;
+  DateTime? _tiempoUltimaLecturaGps;
+
+  // Memoria de la ruta y de la capa base para evitar recalculos y repintados costosos
+  RutaPeatonalUaa? _rutaCache;
+  String _claveRutaCache = '';
+  ui.Picture? _pictureBase;
+  String _clavePictureBase = '';
+
   final List<String> _historialRecientesIds = <String>[
     'CEN-B-202',
     'CEN-B-65',
@@ -62,15 +89,503 @@ class _InteractiveCampusMapSectionState
     super.initState();
     _idCampusMapa = widget.initialCampusId;
     _inicializarRutaPorDefecto(_idCampusMapa);
+    _iniciarDeteccionUbicacionAutomatica();
   }
 
   @override
   void dispose() {
+    _timerSimulacionCaminata?.cancel();
+    _gpsSubscription?.cancel();
+    _geolocationService.detenerSeguimiento();
+    _pictureBase?.dispose();
     _zoomController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _chipsScrollController.dispose();
     super.dispose();
+  }
+
+  // Inicia automaticamente la escucha de GPS en tiempo real y maneja los 3 escenarios (Dentro, Fuera o Manual)
+  void _iniciarDeteccionUbicacionAutomatica() {
+    _timerSimulacionCaminata?.cancel();
+    _gpsSubscription?.cancel();
+    _ultimaLecturaGps = null;
+    _tiempoUltimaLecturaGps = null;
+
+    setState(() {
+      _estadoUbicacion = EstadoUbicacionMapaUaa.buscandoPermiso;
+      _mensajeEstadoUbicacion =
+          'Detectando tu ubicacion actual en tiempo real...';
+      _ocultarBannerUbicacion = false;
+    });
+
+    final Stream<LecturaGpsUsuario> stream = _geolocationService
+        .iniciarSeguimientoTiempoReal(
+          onError: (bool permisoDenegado, String mensaje) {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _estadoUbicacion = EstadoUbicacionMapaUaa.permisoDenegadoManual;
+              _mensajeEstadoUbicacion = 'Modo manual activo: selecciona tu punto de partida y edificio de destino.';
+              _progresoRecorridoUsuario = 0.0;
+              _posicionUsuarioEnVivo = null;
+            });
+          },
+        );
+
+    _gpsSubscription = stream.listen(
+      (LecturaGpsUsuario lectura) {
+        if (!mounted) {
+          return;
+        }
+        _procesarLecturaGpsEnTiempoReal(lectura);
+      },
+      onError: (Object error) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _estadoUbicacion = EstadoUbicacionMapaUaa.permisoDenegadoManual;
+          _mensajeEstadoUbicacion =
+              'GPS no disponible. Usa el modo manual para trazar tu ruta.';
+          _progresoRecorridoUsuario = 0.0;
+          _posicionUsuarioEnVivo = null;
+        });
+      },
+    );
+  }
+
+  // Procesa cada coordenada GPS recibida del dispositivo: detecta si esta dentro o fuera de la UAA y recorta el camino
+  void _procesarLecturaGpsEnTiempoReal(LecturaGpsUsuario lectura) {
+    if (_estadoUbicacion == EstadoUbicacionMapaUaa.simulacionEnVivo) {
+      return;
+    }
+
+    final DateTime ahora = DateTime.now();
+    final LecturaGpsUsuario? anterior = _ultimaLecturaGps;
+    final DateTime? tiempoAnterior = _tiempoUltimaLecturaGps;
+    if (anterior != null && tiempoAnterior != null) {
+      final double metros =
+          GeolocationServiceUaa.calcularDistanciaHaversineMetros(
+            anterior.latitud,
+            anterior.longitud,
+            lectura.latitud,
+            lectura.longitud,
+          );
+      final int milisegundos = ahora.difference(tiempoAnterior).inMilliseconds;
+      if (metros < 5.0 && milisegundos < 3000) {
+        return;
+      }
+    }
+    _ultimaLecturaGps = lectura;
+    _tiempoUltimaLecturaGps = ahora;
+
+    final ProyeccionUbicacionUaa proyeccion =
+        GeolocationServiceUaa.proyectarGpsAlMapa(
+          latitud: lectura.latitud,
+          longitud: lectura.longitud,
+          idCampusActivo: _idCampusMapa,
+        );
+
+    if (!proyeccion.estaDentroDelCampus) {
+      // El usuario esta fuera del mapa de la UAA: sugiere siempre primero el Acceso Principal (Av. Universidad)
+      final List<EntradaSugeridaUaa> entradas =
+          GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
+      final bool yaTieneEntradaOficial = entradas.any(
+        (EntradaSugeridaUaa e) => e.idNodoEdificio == _idNodoOrigen,
+      );
+      final String idEntradaSugerida = yaTieneEntradaOficial
+          ? _idNodoOrigen
+          : entradas.first.idNodoEdificio;
+
+      setState(() {
+        _estadoUbicacion = EstadoUbicacionMapaUaa.fueraDelCampus;
+        _distanciaFueraCampusMetros = proyeccion.distanciaAlCampusMetros;
+        _idNodoOrigen = idEntradaSugerida;
+        _progresoRecorridoUsuario = 0.0;
+        _posicionUsuarioEnVivo = null;
+        final String kmTexto = (_distanciaFueraCampusMetros / 1000.0)
+            .clamp(0.1, 999.0)
+            .toStringAsFixed(1);
+        _mensajeEstadoUbicacion =
+            'Ubicacion fuera de la UAA ($kmTexto km) • Entrada sugerida (Principal primero):';
+      });
+      return;
+    }
+
+    // El usuario esta dentro del campus UAA: actualiza su posicion en vivo y recorta la linea del camino recorrido
+    final RutaPeatonalUaa rutaActual = _obtenerRutaActiva();
+
+    final _ResultadoProyeccionPolilinea proyRuta = _proyectarPuntoSobreRuta(
+      ruta: rutaActual,
+      userX: proyeccion.posX,
+      userY: proyeccion.posY,
+    );
+
+    // Si el usuario se alejo de la ruta trazada (ej. en area verde o calle aledana), recalcula desde el punto optimo de su sector
+    if (proyRuta.distanciaNormalizada > 0.035) {
+      final String nuevoOrigenId = _seleccionarOrigenParaCoordenadaEnMapa(
+        proyeccion.posX,
+        proyeccion.posY,
+      );
+      setState(() {
+        _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
+        _idNodoOrigen = nuevoOrigenId;
+        _posicionUsuarioEnVivo = PuntoMapaUaa(proyeccion.posX, proyeccion.posY);
+        _progresoRecorridoUsuario = 0.0;
+        _mensajeEstadoUbicacion = 'Ubicacion GPS en tiempo real dentro de la UAA • El camino se va recortando conforme avanzas.';
+      });
+      return;
+    }
+
+    setState(() {
+      _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
+      _posicionUsuarioEnVivo = PuntoMapaUaa(proyeccion.posX, proyeccion.posY);
+      _progresoRecorridoUsuario = proyRuta.progreso.clamp(0.0, 1.0);
+      _mensajeEstadoUbicacion = 'Ubicacion GPS en tiempo real dentro de la UAA • El camino se va recortando conforme avanzas.';
+    });
+  }
+
+  // Determina si una coordenada (nx, ny) cae en las calles exteriores que rodean la UAA
+  bool _esCalleExteriorAlrededorDeUaa(double nx, double ny, int idCampus) {
+    if (idCampus == 2) {
+      return ny < 0.16 || ny > 0.94 || nx < 0.05 || nx > 0.93;
+    }
+    // Borde sur (Av. Universidad)
+    if (ny > 0.948) {
+      return true;
+    }
+    // Borde poniente inclinado (Calle Guadalupe Gonzalez)
+    final double limitePonienteX = 0.075 + (0.95 - ny) * 0.34;
+    if (nx < limitePonienteX) {
+      return true;
+    }
+    // Borde norte / Rio San Pedro y oriente exterior
+    if (ny < 0.095 || nx > 0.975) {
+      return true;
+    }
+    if (nx > 0.52 && ny < 0.11 + (nx - 0.52) * 0.42) {
+      return true;
+    }
+    return false;
+  }
+
+  // Identifica en cual de los 3 sectores fisicos de Campus Central (divididos por avenidas) se ubica un punto
+  int _obtenerSectorFisicoCentral(double nx, double ny) {
+    // Sector 3: Zona Norte (Unidad Deportiva, 300s y 400s al norte de Guadalupe Gonzalez)
+    if (ny < 0.448 && nx < 0.87) {
+      return 3;
+    }
+    // Sector 2: Zona Oriente (Edificios 101-130 al oriente de Av. Aguascalientes Norte)
+    final double ejeAvenidaX = 0.775 + (0.70 - ny).clamp(-0.25, 0.30) * 0.18;
+    if (nx > ejeAvenidaX + 0.028) {
+      return 2;
+    }
+    // Franja vial de Av. Aguascalientes Norte o Av. Guadalupe Gonzalez Norte
+    if ((nx >= ejeAvenidaX - 0.018 && nx <= ejeAvenidaX + 0.028) ||
+        (ny >= 0.442 && ny <= 0.478 && nx < 0.78)) {
+      return 0;
+    }
+    // Sector 1: Campus Central Principal
+    return 1;
+  }
+
+  // Selecciona el nodo de origen optimo para cualquier coordenada (calles exteriores, avenidas o areas verdes)
+  String _seleccionarOrigenParaCoordenadaEnMapa(double nx, double ny) {
+    final List<EdificioMapaUaa> edificios = widget.repository
+        .obtenerEdificiosMapa(idCampus: _idCampusMapa);
+
+    // 1. Si esta en las calles de alrededor de la UAA, ingresa siempre por la Entrada Oficial de la UAA mas cercana
+    if (_esCalleExteriorAlrededorDeUaa(nx, ny, _idCampusMapa)) {
+      final List<EntradaSugeridaUaa> entradas =
+          GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
+      EntradaSugeridaUaa mejorEntrada = entradas.first;
+      double minD = double.infinity;
+      for (final EntradaSugeridaUaa e in entradas) {
+        final double d = math.sqrt(
+          math.pow(e.posX - nx, 2) + math.pow(e.posY - ny, 2),
+        );
+        if (d < minD) {
+          minD = d;
+          mejorEntrada = e;
+        }
+      }
+      return mejorEntrada.idNodoEdificio;
+    }
+
+    if (_idCampusMapa == 1) {
+      final int sectorUsuario = _obtenerSectorFisicoCentral(nx, ny);
+      // 2. Si esta sobre la avenida divisoria, conecta al tunel subterraneo o acceso mas cercano
+      if (sectorUsuario == 0) {
+        if (ny < 0.52) {
+          return (nx < 0.54) ? 'CEN-B-208' : 'CEN-B-ACCESO_DEPORTIVA';
+        }
+        return (nx < 0.815) ? 'CEN-B-22' : 'CEN-B-110';
+      }
+
+      // 3. Si esta en un area verde o pasillo interior, busca el edificio mas cercano dentro de su mismo sector fisico
+      EdificioMapaUaa? mejorEdif;
+      double mejorDistancia = double.infinity;
+      for (final EdificioMapaUaa e in edificios) {
+        final int sectorEdif = _obtenerSectorFisicoCentral(e.posX, e.posY);
+        if (sectorEdif != sectorUsuario && sectorEdif != 0) {
+          continue;
+        }
+        final double distAlUsuario = math.sqrt(
+          math.pow(e.posX - nx, 2) + math.pow(e.posY - ny, 2),
+        );
+        if (distAlUsuario < 0.14 && distAlUsuario < mejorDistancia) {
+          mejorDistancia = distAlUsuario;
+          mejorEdif = e;
+        }
+      }
+      if (mejorEdif != null) {
+        return mejorEdif.idNodo;
+      }
+    }
+
+    EdificioMapaUaa? masCercano;
+    double minD = double.infinity;
+    for (final EdificioMapaUaa e in edificios) {
+      final double d = math.sqrt(
+        math.pow(e.posX - nx, 2) + math.pow(e.posY - ny, 2),
+      );
+      if (d < minD) {
+        minD = d;
+        masCercano = e;
+      }
+    }
+    return masCercano?.idNodo ?? _idNodoOrigen;
+  }
+
+  // Permite probar el GPS en tiempo real haciendo clic en cualquier pasillo, area verde o calle exterior de la UAA
+  void _moverGpsSimuladoACoordenadaLocal(Offset localPosition) {
+    if (_ultimoImgW <= 0 || _ultimoImgH <= 0) {
+      return;
+    }
+    final double nx = ((localPosition.dx - _ultimoOffsetX) / _ultimoImgW).clamp(
+      0.02,
+      0.98,
+    );
+    final double ny = ((localPosition.dy - _ultimoOffsetY) / _ultimoImgH).clamp(
+      0.02,
+      0.98,
+    );
+
+    _timerSimulacionCaminata?.cancel();
+
+    final bool enCalleExterior = _esCalleExteriorAlrededorDeUaa(
+      nx,
+      ny,
+      _idCampusMapa,
+    );
+
+    final RutaPeatonalUaa rutaActual = _obtenerRutaActiva();
+
+    final _ResultadoProyeccionPolilinea proy = _proyectarPuntoSobreRuta(
+      ruta: rutaActual,
+      userX: nx,
+      userY: ny,
+    );
+
+    // Si hizo clic en una calle exterior, area verde o punto alejado del trazo actual, reencamina desde esa posicion
+    if (enCalleExterior || proy.distanciaNormalizada > 0.032) {
+      final String nuevoOrigenId = _seleccionarOrigenParaCoordenadaEnMapa(
+        nx,
+        ny,
+      );
+      setState(() {
+        _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
+        _idNodoOrigen = nuevoOrigenId;
+        _posicionUsuarioEnVivo = PuntoMapaUaa(nx, ny);
+        _progresoRecorridoUsuario = 0.0;
+        _mensajeEstadoUbicacion = enCalleExterior
+            ? 'Ubicacion en calle exterior de la UAA • Trazando ruta desde tu posicion hacia el acceso mas cercano.'
+            : 'Ubicacion en campus / area verde • Trazando camino continuo desde tu posicion hasta el destino.';
+      });
+      return;
+    }
+
+    setState(() {
+      _estadoUbicacion = EstadoUbicacionMapaUaa.dentroDelCampus;
+      _posicionUsuarioEnVivo = proy.puntoProyectado;
+      _progresoRecorridoUsuario = proy.progreso.clamp(0.0, 1.0);
+      _mensajeEstadoUbicacion =
+          'Avance GPS en ruta (${(_progresoRecorridoUsuario * 100).round()}% recorrido) • Haz clic mas adelante sobre la linea azul para avanzar.';
+    });
+  }
+
+  // Proyecta la posicion en vivo del usuario sobre los segmentos del camino para recortar el tramo ya recorrido
+  _ResultadoProyeccionPolilinea _proyectarPuntoSobreRuta({
+    required RutaPeatonalUaa ruta,
+    required double userX,
+    required double userY,
+  }) {
+    final List<NodoPasilloUaa> pts = ruta.puntosTrayecto;
+    if (pts.length < 2) {
+      return _ResultadoProyeccionPolilinea(
+        progreso: 0.0,
+        distanciaNormalizada: 0.0,
+        puntoProyectado: PuntoMapaUaa(userX, userY),
+      );
+    }
+
+    double longitudTotal = 0.0;
+    final List<double> segLens = <double>[];
+    for (int i = 0; i < pts.length - 1; i++) {
+      final double dx = pts[i + 1].posX - pts[i].posX;
+      final double dy = pts[i + 1].posY - pts[i].posY;
+      final double l = math.sqrt(dx * dx + dy * dy);
+      segLens.add(l);
+      longitudTotal += l;
+    }
+
+    if (longitudTotal <= 1e-6) {
+      return _ResultadoProyeccionPolilinea(
+        progreso: 0.0,
+        distanciaNormalizada: 0.0,
+        puntoProyectado: PuntoMapaUaa(userX, userY),
+      );
+    }
+
+    double mejorDist = double.infinity;
+    double mejorRecorrido = 0.0;
+    PuntoMapaUaa mejorPunto = PuntoMapaUaa(pts.first.posX, pts.first.posY);
+    double acumulado = 0.0;
+
+    for (int i = 0; i < pts.length - 1; i++) {
+      final double ax = pts[i].posX;
+      final double ay = pts[i].posY;
+      final double bx = pts[i + 1].posX;
+      final double by = pts[i + 1].posY;
+      final double abx = bx - ax;
+      final double aby = by - ay;
+      final double len2 = abx * abx + aby * aby;
+
+      double t = 0.0;
+      if (len2 > 1e-9) {
+        t = (((userX - ax) * abx) + ((userY - ay) * aby)) / len2;
+        t = t.clamp(0.0, 1.0);
+      }
+
+      final double qx = ax + t * abx;
+      final double qy = ay + t * aby;
+      final double dist = math.sqrt(
+        math.pow(userX - qx, 2) + math.pow(userY - qy, 2),
+      );
+
+      if (dist < mejorDist) {
+        mejorDist = dist;
+        mejorRecorrido = acumulado + t * segLens[i];
+        mejorPunto = PuntoMapaUaa(qx, qy);
+      }
+      acumulado += segLens[i];
+    }
+
+    return _ResultadoProyeccionPolilinea(
+      progreso: (mejorRecorrido / longitudTotal).clamp(0.0, 1.0),
+      distanciaNormalizada: mejorDist,
+      puntoProyectado: mejorPunto,
+    );
+  }
+
+  // Permite demostrar en vivo como el camino se va borrando/recortando conforme avanza la ubicacion del usuario
+  void _alternarSimulacionAvanceEnVivo(RutaPeatonalUaa rutaActiva) {
+    if (_timerSimulacionCaminata != null &&
+        _timerSimulacionCaminata!.isActive) {
+      _timerSimulacionCaminata?.cancel();
+      setState(() {
+        _progresoRecorridoUsuario = 0.0;
+        _posicionUsuarioEnVivo = null;
+        _estadoUbicacion = EstadoUbicacionMapaUaa.fueraDelCampus;
+      });
+      return;
+    }
+
+    _enfocarRutaEnCamara(rutaActiva);
+    setState(() {
+      _estadoUbicacion = EstadoUbicacionMapaUaa.simulacionEnVivo;
+      _progresoRecorridoUsuario = 0.02;
+      _posicionUsuarioEnVivo = _interpolarPuntoEnRuta(rutaActiva, 0.02);
+      _mensajeEstadoUbicacion = 'Avance GPS en tiempo real activo • Observa como el camino se va recortando conforme avanzas.';
+    });
+
+    _timerSimulacionCaminata = Timer.periodic(const Duration(milliseconds: 250), (
+      Timer timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final RutaPeatonalUaa rutaActual = _obtenerRutaActiva();
+      final double siguiente = _progresoRecorridoUsuario + 0.03;
+      if (siguiente >= 1.0) {
+        timer.cancel();
+        setState(() {
+          _progresoRecorridoUsuario = 1.0;
+          _posicionUsuarioEnVivo = PuntoMapaUaa(
+            rutaActual.destino.posX,
+            rutaActual.destino.posY,
+          );
+          _mensajeEstadoUbicacion =
+              'Has llegado a tu destino: ${rutaActual.destino.codigo} (${rutaActual.destino.nombre}).';
+        });
+        Future<void>.delayed(const Duration(seconds: 2), () {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _progresoRecorridoUsuario = 0.0;
+            _posicionUsuarioEnVivo = null;
+          });
+        });
+      } else {
+        setState(() {
+          _progresoRecorridoUsuario = siguiente;
+          _posicionUsuarioEnVivo = _interpolarPuntoEnRuta(
+            rutaActual,
+            siguiente,
+          );
+        });
+      }
+    });
+  }
+
+  // Obtiene la coordenada normalizada exacta (posX, posY) para un porcentaje de avance (0.0 a 1.0) sobre la ruta
+  PuntoMapaUaa _interpolarPuntoEnRuta(RutaPeatonalUaa ruta, double progreso) {
+    final List<NodoPasilloUaa> pts = ruta.puntosTrayecto;
+    if (pts.isEmpty) {
+      return PuntoMapaUaa(ruta.origen.posX, ruta.origen.posY);
+    }
+    if (pts.length == 1) {
+      return PuntoMapaUaa(pts.first.posX, pts.first.posY);
+    }
+
+    double total = 0.0;
+    final List<double> lens = <double>[];
+    for (int i = 0; i < pts.length - 1; i++) {
+      final double d = math.sqrt(
+        math.pow(pts[i + 1].posX - pts[i].posX, 2) +
+            math.pow(pts[i + 1].posY - pts[i].posY, 2),
+      );
+      lens.add(d);
+      total += d;
+    }
+
+    final double target = total * progreso.clamp(0.0, 1.0);
+    double acum = 0.0;
+    for (int i = 0; i < pts.length - 1; i++) {
+      if (acum + lens[i] >= target && lens[i] > 1e-9) {
+        final double t = ((target - acum) / lens[i]).clamp(0.0, 1.0);
+        return PuntoMapaUaa(
+          pts[i].posX + (pts[i + 1].posX - pts[i].posX) * t,
+          pts[i].posY + (pts[i + 1].posY - pts[i].posY) * t,
+        );
+      }
+      acum += lens[i];
+    }
+    return PuntoMapaUaa(pts.last.posX, pts.last.posY);
   }
 
   // Configura el punto de partida (Acceso Principal) y un edificio destino inicial por campus
@@ -84,6 +599,62 @@ class _InteractiveCampusMapSectionState
     }
     _idNodoHover = null;
     _categoriaFiltroActiva = '';
+  }
+
+  // Devuelve la ruta activa reutilizando el calculo previo mientras no cambien origen, destino o campus
+  RutaPeatonalUaa _obtenerRutaActiva() {
+    final String clave = '$_idCampusMapa|$_idNodoOrigen|$_idNodoDestino';
+    final RutaPeatonalUaa? rutaGuardada = _rutaCache;
+    if (rutaGuardada != null && _claveRutaCache == clave) {
+      return rutaGuardada;
+    }
+    final RutaPeatonalUaa nuevaRuta = widget.repository.calcularRutaPeatonal(
+      idCampus: _idCampusMapa,
+      idNodoOrigen: _idNodoOrigen,
+      idNodoDestino: _idNodoDestino,
+    );
+    _rutaCache = nuevaRuta;
+    _claveRutaCache = clave;
+    return nuevaRuta;
+  }
+
+  // Graba la capa base vectorial una sola vez por campus, tema y tamano para evitar redibujarla en cada frame
+  ui.Picture _obtenerPictureBase({
+    required bool isDark,
+    required double offsetX,
+    required double offsetY,
+    required double imgW,
+    required double imgH,
+    required RutaPeatonalUaa rutaActiva,
+    required List<EdificioMapaUaa> edificiosCampus,
+  }) {
+    final String clave =
+        '$_idCampusMapa|$isDark|${imgW.round()}|${imgH.round()}|${offsetX.round()}|${offsetY.round()}';
+    final ui.Picture? pictureGuardada = _pictureBase;
+    if (pictureGuardada != null && _clavePictureBase == clave) {
+      return pictureGuardada;
+    }
+
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    final _VectorCampusOverlayPainter painter = _VectorCampusOverlayPainter(
+      idCampus: _idCampusMapa,
+      dibujarCapasBaseVectoriales: true,
+      isDark: isDark,
+      edificiosCampus: edificiosCampus,
+      rutaActiva: rutaActiva,
+      edificioHover: null,
+      progresoAnimacion: 1.0,
+      offsetX: offsetX,
+      offsetY: offsetY,
+      imgW: imgW,
+      imgH: imgH,
+    );
+    painter._dibujarMapaBaseVectorial(canvas);
+    final ui.Picture nuevaPicture = recorder.endRecording();
+    _pictureBase = nuevaPicture;
+    _clavePictureBase = clave;
+    return nuevaPicture;
   }
 
   // Sincroniza el campus cuando cambia el perfil del usuario en el encabezado
@@ -139,13 +710,29 @@ class _InteractiveCampusMapSectionState
     });
   }
 
-  // Registra un edificio en la lista de recientes y lo fija como destino
+  // Registra un edificio en la lista de recientes y mantiene el Acceso Principal como primera entrada sugerida
   void _seleccionarEdificioDestino(
     EdificioMapaUaa edificio, {
     bool enfocarCamara = true,
   }) {
+    _timerSimulacionCaminata?.cancel();
     setState(() {
       _idNodoDestino = edificio.idNodo;
+      _progresoRecorridoUsuario = 0.0;
+      if (_estadoUbicacion == EstadoUbicacionMapaUaa.simulacionEnVivo) {
+        _estadoUbicacion = EstadoUbicacionMapaUaa.fueraDelCampus;
+        _posicionUsuarioEnVivo = null;
+      }
+      if (_estadoUbicacion == EstadoUbicacionMapaUaa.fueraDelCampus) {
+        final List<EntradaSugeridaUaa> entradas =
+            GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
+        final bool tieneEntradaOficial = entradas.any(
+          (EntradaSugeridaUaa e) => e.idNodoEdificio == _idNodoOrigen,
+        );
+        if (!tieneEntradaOficial) {
+          _idNodoOrigen = entradas.first.idNodoEdificio;
+        }
+      }
       _busquedaTexto = '${edificio.codigo} - ${edificio.nombre}';
       _searchController.text = _busquedaTexto;
       _mostrarSugerencias = false;
@@ -157,31 +744,20 @@ class _InteractiveCampusMapSectionState
     });
     _searchFocusNode.unfocus();
     if (enfocarCamara) {
-      final RutaPeatonalUaa nuevaRuta = widget.repository.calcularRutaPeatonal(
-        idCampus: _idCampusMapa,
-        idNodoOrigen: _idNodoOrigen,
-        idNodoDestino: edificio.idNodo,
-      );
+      final RutaPeatonalUaa nuevaRuta = _obtenerRutaActiva();
       _enfocarRutaEnCamara(nuevaRuta);
     }
   }
 
-  // Fija la ubicacion actual del usuario en el acceso principal del campus activo
+  // Solicita o refresca la ubicacion GPS real del usuario y centra el encuadre del mapa
   void _fijarMiUbicacionActual() {
-    setState(() {
-      _idNodoOrigen =
-          _idCampusMapa == 1 ? 'CEN-B-ACCESO_SUR' : 'SUR-B-ACCESO_SUR';
-    });
+    _iniciarDeteccionUbicacionAutomatica();
     _aplicarEncuadreInicialConZoom();
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _idCampusMapa == 1
-              ? 'Ubicacion actual centrada en: Acceso Principal Av. Universidad (Campus Central).'
-              : 'Ubicacion actual centrada en: Plaza de Acceso Prol. Mahatma Gandhi (Campus Sur).',
-        ),
-        duration: const Duration(seconds: 2),
+      const SnackBar(
+        content: Text('Actualizando tu ubicacion GPS en tiempo real...'),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -218,8 +794,9 @@ class _InteractiveCampusMapSectionState
     final double effectiveFactor = nextScale / currentScale;
 
     final double cx = _tamanoVisor.width > 0 ? _tamanoVisor.width / 2.0 : 400.0;
-    final double cy =
-        _tamanoVisor.height > 0 ? _tamanoVisor.height / 2.0 : 300.0;
+    final double cy = _tamanoVisor.height > 0
+        ? _tamanoVisor.height / 2.0
+        : 300.0;
 
     final Matrix4 zoomMatrix = Matrix4.identity()
       ..translateByDouble(cx, cy, 0.0, 1.0)
@@ -320,11 +897,11 @@ class _InteractiveCampusMapSectionState
     final List<EdificioMapaUaa> base = _categoriaFiltroActiva.isEmpty
         ? todos
         : todos
-            .where(
-              (EdificioMapaUaa e) =>
-                  _cumpleCategoriaRapida(e, _categoriaFiltroActiva),
-            )
-            .toList();
+              .where(
+                (EdificioMapaUaa e) =>
+                    _cumpleCategoriaRapida(e, _categoriaFiltroActiva),
+              )
+              .toList();
 
     final String q = queryRaw.trim().toLowerCase();
     if (q.isEmpty) {
@@ -349,9 +926,7 @@ class _InteractiveCampusMapSectionState
       final String zonaLower = e.zona.toLowerCase();
 
       int? prioridad;
-      if (numPuro == qSinPrefijo ||
-          numSinGuion == qSinGuion ||
-          codLower == q) {
+      if (numPuro == qSinPrefijo || numSinGuion == qSinGuion || codLower == q) {
         prioridad = 0;
       } else if (numPuro.startsWith(qSinPrefijo) ||
           numSinGuion.startsWith(qSinGuion)) {
@@ -367,17 +942,15 @@ class _InteractiveCampusMapSectionState
       }
     }
 
-    coincidencias.sort(
-      (
-        MapEntry<int, EdificioMapaUaa> a,
-        MapEntry<int, EdificioMapaUaa> b,
-      ) {
-        if (a.key != b.key) {
-          return a.key.compareTo(b.key);
-        }
-        return a.value.codigo.length.compareTo(b.value.codigo.length);
-      },
-    );
+    coincidencias.sort((
+      MapEntry<int, EdificioMapaUaa> a,
+      MapEntry<int, EdificioMapaUaa> b,
+    ) {
+      if (a.key != b.key) {
+        return a.key.compareTo(b.key);
+      }
+      return a.value.codigo.length.compareTo(b.value.codigo.length);
+    });
 
     return coincidencias
         .map((MapEntry<int, EdificioMapaUaa> item) => item.value)
@@ -396,10 +969,10 @@ class _InteractiveCampusMapSectionState
       final double xj = poly[j].x;
       final double yj = poly[j].y;
 
-      final bool intersecta = ((yi > ny) != (yj > ny)) &&
+      final bool intersecta =
+          ((yi > ny) != (yj > ny)) &&
           (nx <
-              (xj - xi) * (ny - yi) / ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
-                  xi);
+              (xj - xi) * (ny - yi) / ((yj - yi) == 0 ? 1e-9 : (yj - yi)) + xi);
       if (intersecta) {
         dentro = !dentro;
       }
@@ -448,16 +1021,16 @@ class _InteractiveCampusMapSectionState
   }) {
     final List<EdificioMapaUaa> lista = mostrarRecientes
         ? _historialRecientesIds
-            .map(
-              (String id) => todosEdificios
-                  .where((EdificioMapaUaa e) => e.idNodo == id)
-                  .firstOrNull,
-            )
-            .whereType<EdificioMapaUaa>()
-            .toList()
+              .map(
+                (String id) => todosEdificios
+                    .where((EdificioMapaUaa e) => e.idNodo == id)
+                    .firstOrNull,
+              )
+              .whereType<EdificioMapaUaa>()
+              .toList()
         : todosEdificios
-            .where((EdificioMapaUaa e) => e.esPuntoPartidaFrecuente)
-            .toList();
+              .where((EdificioMapaUaa e) => e.esPuntoPartidaFrecuente)
+              .toList();
 
     showDialog<void>(
       context: context,
@@ -531,23 +1104,21 @@ class _InteractiveCampusMapSectionState
   // Construye la estructura responsiva identica a Google Maps para PC/Laptop, Tablet y Telefono
   @override
   Widget build(BuildContext context) {
-    final List<EdificioMapaUaa> todosEdificios =
-        widget.repository.obtenerEdificiosMapa(idCampus: _idCampusMapa);
+    final List<EdificioMapaUaa> todosEdificios = widget.repository
+        .obtenerEdificiosMapa(idCampus: _idCampusMapa);
 
-    final List<EdificioMapaUaa> sugerencias =
-        _filtrarYOrdenarEdificios(todosEdificios, _busquedaTexto);
-
-    final RutaPeatonalUaa rutaActiva = widget.repository.calcularRutaPeatonal(
-      idCampus: _idCampusMapa,
-      idNodoOrigen: _idNodoOrigen,
-      idNodoDestino: _idNodoDestino,
+    final List<EdificioMapaUaa> sugerencias = _filtrarYOrdenarEdificios(
+      todosEdificios,
+      _busquedaTexto,
     );
+
+    final RutaPeatonalUaa rutaActiva = _obtenerRutaActiva();
 
     final EdificioMapaUaa? edificioHover = _idNodoHover == null
         ? null
         : todosEdificios
-            .where((EdificioMapaUaa e) => e.idNodo == _idNodoHover)
-            .firstOrNull;
+              .where((EdificioMapaUaa e) => e.idNodo == _idNodoHover)
+              .firstOrNull;
 
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -559,8 +1130,9 @@ class _InteractiveCampusMapSectionState
         ? AppConstants.mapaOficialCentralAsset
         : AppConstants.mapaOficialSurAsset;
 
-    final double aspectRatioMapa =
-        _idCampusMapa == 1 ? (1692.0 / 1650.0) : (1810.0 / 799.0);
+    final double aspectRatioMapa = _idCampusMapa == 1
+        ? (1692.0 / 1650.0)
+        : (1810.0 / 799.0);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -703,16 +1275,19 @@ class _InteractiveCampusMapSectionState
                             decoration: BoxDecoration(
                               border: Border(
                                 left: BorderSide(
-                                  color:
-                                      isDark ? Colors.white70 : Colors.black87,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black87,
                                 ),
                                 right: BorderSide(
-                                  color:
-                                      isDark ? Colors.white70 : Colors.black87,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black87,
                                 ),
                                 bottom: BorderSide(
-                                  color:
-                                      isDark ? Colors.white70 : Colors.black87,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black87,
                                   width: 1.5,
                                 ),
                               ),
@@ -737,18 +1312,18 @@ class _InteractiveCampusMapSectionState
     required List<EdificioMapaUaa> todosEdificios,
   }) {
     final Color railBg = isDark ? AppColors.darkSurface : Colors.white;
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final Color iconCol =
-        isDark ? AppColors.darkTextPrimary : const Color(0xFF3C4043);
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : AppColors.lightBorder;
+    final Color iconCol = isDark
+        ? AppColors.darkTextPrimary
+        : const Color(0xFF3C4043);
 
     return Container(
       width: 68,
       decoration: BoxDecoration(
         color: railBg,
-        border: Border(
-          right: BorderSide(color: borderCol),
-        ),
+        border: Border(right: BorderSide(color: borderCol)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
@@ -859,10 +1434,12 @@ class _InteractiveCampusMapSectionState
     required bool isDark,
     required VoidCallback onTap,
   }) {
-    final Color activeCol =
-        isDark ? AppColors.footerAccentBlue : AppColors.secondaryBlue;
-    final Color normalCol =
-        isDark ? AppColors.darkTextSecondary : const Color(0xFF444746);
+    final Color activeCol = isDark
+        ? AppColors.footerAccentBlue
+        : AppColors.secondaryBlue;
+    final Color normalCol = isDark
+        ? AppColors.darkTextSecondary
+        : const Color(0xFF444746);
 
     return InkWell(
       borderRadius: BorderRadius.circular(10),
@@ -880,8 +1457,9 @@ class _InteractiveCampusMapSectionState
                     ? activeCol.withValues(alpha: 0.16)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
-                border:
-                    activo ? Border.all(color: activeCol, width: 1.4) : null,
+                border: activo
+                    ? Border.all(color: activeCol, width: 1.4)
+                    : null,
               ),
               child: Icon(
                 icono,
@@ -929,6 +1507,13 @@ class _InteractiveCampusMapSectionState
       rutaActiva: rutaActiva,
     );
 
+    final Widget? locationBanner = _ocultarBannerUbicacion
+        ? null
+        : _buildBannerUbicacionYEntradasSugeridas(
+            isDark: isDark,
+            rutaActiva: rutaActiva,
+          );
+
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -938,26 +1523,251 @@ class _InteractiveCampusMapSectionState
           if (!_mostrarSugerencias && !_mostrarPanelRutas) ...<Widget>[
             const SizedBox(height: 8),
             categoryChipsRow,
+            if (locationBanner != null) ...<Widget>[
+              const SizedBox(height: 6),
+              locationBanner,
+            ],
           ],
         ],
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        SizedBox(
-          width: 380,
-          child: searchPillColumn,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: categoryChipsRow,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SizedBox(width: 380, child: searchPillColumn),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: categoryChipsRow,
+                  ),
+                  if (locationBanner != null &&
+                      !_mostrarSugerencias &&
+                      !_mostrarPanelRutas) ...<Widget>[
+                    const SizedBox(height: 6),
+                    locationBanner,
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  // Barra informativa de ubicacion GPS en tiempo real, entradas sugeridas cuando esta fuera de la UAA y simulacion de avance
+  Widget _buildBannerUbicacionYEntradasSugeridas({
+    required bool isDark,
+    required RutaPeatonalUaa rutaActiva,
+  }) {
+    final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
+    final bool simulando =
+        _estadoUbicacion == EstadoUbicacionMapaUaa.simulacionEnVivo;
+    final bool fueraDeUaa =
+        _estadoUbicacion == EstadoUbicacionMapaUaa.fueraDelCampus;
+    final List<EntradaSugeridaUaa> entradas =
+        GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cardBg.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderCol),
+      ),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          Icon(
+            fueraDeUaa
+                ? Icons.near_me_outlined
+                : (simulando ||
+                          _estadoUbicacion ==
+                              EstadoUbicacionMapaUaa.dentroDelCampus
+                      ? Icons.gps_fixed
+                      : Icons.edit_location_alt_outlined),
+            size: 15,
+            color: fueraDeUaa
+                ? AppColors.accentCrimson
+                : AppColors.secondaryBlue,
+          ),
+          Text(
+            _mensajeEstadoUbicacion,
+            style: TextStyle(
+              fontSize: 11.2,
+              fontWeight: FontWeight.w700,
+              color: isDark
+                  ? AppColors.darkTextPrimary
+                  : const Color(0xFF1E293B),
+            ),
+          ),
+          if (fueraDeUaa ||
+              _estadoUbicacion ==
+                  EstadoUbicacionMapaUaa.permisoDenegadoManual) ...<Widget>[
+            ...entradas.map((EntradaSugeridaUaa ent) {
+              final bool seleccionada = _idNodoOrigen == ent.idNodoEdificio;
+              return InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  _timerSimulacionCaminata?.cancel();
+                  setState(() {
+                    _idNodoOrigen = ent.idNodoEdificio;
+                    _progresoRecorridoUsuario = 0.0;
+                    _posicionUsuarioEnVivo = null;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: seleccionada
+                        ? AppColors.primaryNavy
+                        : (isDark
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: seleccionada ? AppColors.secondaryBlue : borderCol,
+                    ),
+                  ),
+                  child: Text(
+                    ent.nombreCorto,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: seleccionada
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : const Color(0xFF334155)),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _alternarSimulacionAvanceEnVivo(rutaActiva),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(
+                color: simulando
+                    ? AppColors.accentCrimson
+                    : AppColors.secondaryBlue,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    simulando
+                        ? Icons.stop_circle_outlined
+                        : Icons.directions_run,
+                    size: 13,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    simulando ? 'Detener avance' : 'Simular avance en ruta',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              _timerSimulacionCaminata?.cancel();
+              setState(() {
+                _modoMoverGpsConClic = !_modoMoverGpsConClic;
+                if (_modoMoverGpsConClic) {
+                  _mensajeEstadoUbicacion = 'Modo prueba GPS activo: haz clic en cualquier punto o pasillo del mapa para colocar tu GPS ahi.';
+                } else {
+                  _progresoRecorridoUsuario = 0.0;
+                  _posicionUsuarioEnVivo = null;
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(
+                color: _modoMoverGpsConClic
+                    ? const Color(0xFF0F766E)
+                    : (isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFE2E8F0)),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _modoMoverGpsConClic
+                      ? const Color(0xFF14B8A6)
+                      : borderCol,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.touch_app_outlined,
+                    size: 13,
+                    color: _modoMoverGpsConClic
+                        ? Colors.white
+                        : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _modoMoverGpsConClic
+                        ? 'Salir de GPS con clic'
+                        : 'Probar GPS con clic',
+                    style: TextStyle(
+                      color: _modoMoverGpsConClic
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              setState(() {
+                _ocultarBannerUbicacion = true;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Icon(
+                Icons.close,
+                size: 15,
+                color: isDark ? Colors.white54 : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -971,8 +1781,9 @@ class _InteractiveCampusMapSectionState
     required RutaPeatonalUaa rutaActiva,
   }) {
     final Color pillBg = isDark ? AppColors.darkSurface : Colors.white;
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : const Color(0xFFDADCE0);
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1234,17 +2045,27 @@ class _InteractiveCampusMapSectionState
     );
   }
 
-  // Barra horizontal superior: primero muestra la insignia de Tiempo Estimado y luego los chips de categorias
+  // Barra horizontal superior: primero muestra la insignia de Tiempo Estimado (actualizada con el avance) y luego los chips
   Widget _buildGoogleMapsCategoryChipsBar({
     required bool isDark,
     required List<EdificioMapaUaa> todosEdificios,
     required RutaPeatonalUaa rutaActiva,
   }) {
+    final double factorRestante = (1.0 - _progresoRecorridoUsuario).clamp(
+      0.0,
+      1.0,
+    );
+    final int metrosRestantes = (rutaActiva.distanciaMetros * factorRestante)
+        .round();
+    final int minutosRestantes = metrosRestantes <= 0
+        ? 0
+        : math.max(1, (rutaActiva.tiempoMinutos * factorRestante).ceil());
+
     final List<Map<String, Object>> categorias = <Map<String, Object>>[
       <String, Object>{
         'id': 'TIME_BADGE',
         'label':
-            '${rutaActiva.tiempoMinutos} min a pie (${rutaActiva.distanciaMetros} m) • ${rutaActiva.destino.codigo}',
+            '$minutosRestantes min a pie ($metrosRestantes m) • ${rutaActiva.destino.codigo}',
         'icon': Icons.directions_walk,
       },
       <String, Object>{
@@ -1285,8 +2106,9 @@ class _InteractiveCampusMapSectionState
     ];
 
     final Color chipBg = isDark ? AppColors.darkSurface : Colors.white;
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : const Color(0xFFDADCE0);
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
 
     return SizedBox(
       height: 36,
@@ -1308,10 +2130,10 @@ class _InteractiveCampusMapSectionState
           final Color bgColor = esTimeBadge
               ? AppColors.accentCrimson
               : (activo
-                  ? (esSwitchCampus
-                      ? AppColors.primaryNavy
-                      : AppColors.secondaryBlue)
-                  : chipBg);
+                    ? (esSwitchCampus
+                          ? AppColors.primaryNavy
+                          : AppColors.secondaryBlue)
+                    : chipBg);
 
           return Material(
             color: bgColor,
@@ -1364,8 +2186,8 @@ class _InteractiveCampusMapSectionState
                         color: activo
                             ? Colors.white
                             : (isDark
-                                ? AppColors.darkTextPrimary
-                                : const Color(0xFF3C4043)),
+                                  ? AppColors.darkTextPrimary
+                                  : const Color(0xFF3C4043)),
                       ),
                     ),
                   ],
@@ -1386,8 +2208,9 @@ class _InteractiveCampusMapSectionState
     required RutaPeatonalUaa rutaActiva,
   }) {
     final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : const Color(0xFFDADCE0);
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1447,9 +2270,10 @@ class _InteractiveCampusMapSectionState
                   child: DropdownButton<String>(
                     isExpanded: true,
                     isDense: true,
-                    value: todosEdificios.any(
-                      (EdificioMapaUaa e) => e.idNodo == _idNodoOrigen,
-                    )
+                    value:
+                        todosEdificios.any(
+                          (EdificioMapaUaa e) => e.idNodo == _idNodoOrigen,
+                        )
                         ? _idNodoOrigen
                         : todosEdificios.first.idNodo,
                     items: todosEdificios.map((EdificioMapaUaa e) {
@@ -1513,8 +2337,9 @@ class _InteractiveCampusMapSectionState
   // Boton cuadrado inferior izquierdo para alternar entre vista Interactiva (por defecto) y Mapa Original
   Widget _buildGoogleMapsCapasSquareButton(bool isDark) {
     final Color borderCol = isDark ? AppColors.darkBorder : Colors.white;
-    final String etiquetaBoton =
-        _modoVectorialEstilizado ? 'Original' : 'Interactivo';
+    final String etiquetaBoton = _modoVectorialEstilizado
+        ? 'Original'
+        : 'Interactivo';
 
     return Tooltip(
       message: _modoVectorialEstilizado
@@ -1548,6 +2373,8 @@ class _InteractiveCampusMapSectionState
                       ? AppConstants.mapaOficialCentralAsset
                       : AppConstants.mapaOficialSurAsset,
                   fit: BoxFit.cover,
+                  filterQuality: FilterQuality.low,
+                  cacheWidth: 192,
                 ),
               ),
               Align(
@@ -1556,20 +2383,29 @@ class _InteractiveCampusMapSectionState
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   color: Colors.black.withValues(alpha: 0.72),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      const Icon(Icons.layers, color: Colors.white, size: 11),
-                      const SizedBox(width: 3),
-                      Text(
-                        etiquetaBoton,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9.8,
-                          fontWeight: FontWeight.w800,
-                        ),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.layers,
+                            color: Colors.white,
+                            size: 11,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            etiquetaBoton,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1586,8 +2422,9 @@ class _InteractiveCampusMapSectionState
     RutaPeatonalUaa rutaActiva,
   ) {
     final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
-    final Color borderCol =
-        isDark ? AppColors.darkBorder : const Color(0xFFDADCE0);
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
     final Color iconCol = isDark ? Colors.white : const Color(0xFF3C4043);
 
     return Column(
@@ -1602,11 +2439,7 @@ class _InteractiveCampusMapSectionState
             child: SizedBox(
               width: 38,
               height: 38,
-              child: Icon(
-                Icons.my_location,
-                size: 19,
-                color: iconCol,
-              ),
+              child: Icon(Icons.my_location, size: 19, color: iconCol),
             ),
           ),
         ),
@@ -1692,6 +2525,25 @@ class _InteractiveCampusMapSectionState
         final String routeKey =
             '${rutaActiva.origen.idNodo}->${rutaActiva.destino.idNodo}';
 
+        final ui.Picture? pictureBase = _modoVectorialEstilizado
+            ? _obtenerPictureBase(
+                isDark: isDark,
+                offsetX: offsetX,
+                offsetY: offsetY,
+                imgW: imgW,
+                imgH: imgH,
+                rutaActiva: rutaActiva,
+                edificiosCampus: edificiosCampus,
+              )
+            : null;
+        final int anchoCacheMapa = math.min(
+          2400,
+          math.max(
+            512,
+            (imgW * MediaQuery.devicePixelRatioOf(context)).round(),
+          ),
+        );
+
         return MouseRegion(
           cursor: _idNodoHover != null
               ? SystemMouseCursors.click
@@ -1724,11 +2576,15 @@ class _InteractiveCampusMapSectionState
                 });
                 _searchFocusNode.unfocus();
               }
+              if (_modoMoverGpsConClic) {
+                _moverGpsSimuladoACoordenadaLocal(details.localPosition);
+                return;
+              }
               final EdificioMapaUaa? edificioTocado =
                   _detectarEdificioEnCoordenada(
-                details.localPosition,
-                edificiosCampus,
-              );
+                    details.localPosition,
+                    edificiosCampus,
+                  );
               if (edificioTocado != null) {
                 _seleccionarEdificioDestino(
                   edificioTocado,
@@ -1749,6 +2605,7 @@ class _InteractiveCampusMapSectionState
                         key: ValueKey<String>(mapAsset),
                         fit: BoxFit.fill,
                         filterQuality: FilterQuality.medium,
+                        cacheWidth: anchoCacheMapa,
                       ),
                     ),
                   ),
@@ -1758,32 +2615,47 @@ class _InteractiveCampusMapSectionState
                   duration: const Duration(milliseconds: 460),
                   curve: Curves.easeOutCubic,
                   builder: (BuildContext context, double progress, _) {
-                    return CustomPaint(
-                      painter: _VectorCampusOverlayPainter(
-                        idCampus: _idCampusMapa,
-                        dibujarCapasBaseVectoriales: _modoVectorialEstilizado,
-                        isDark: isDark,
-                        edificiosCampus: edificiosCampus,
-                        rutaActiva: rutaActiva,
-                        edificioHover: edificioHover,
-                        progresoAnimacion: progress,
-                        offsetX: offsetX,
-                        offsetY: offsetY,
-                        imgW: imgW,
-                        imgH: imgH,
-                      ),
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: <Widget>[
+                        if (pictureBase != null)
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _StaticMapPicturePainter(pictureBase),
+                            ),
+                          ),
+                        CustomPaint(
+                          painter: _VectorCampusOverlayPainter(
+                            idCampus: _idCampusMapa,
+                            dibujarCapasBaseVectoriales: false,
+                            isDark: isDark,
+                            edificiosCampus: edificiosCampus,
+                            rutaActiva: rutaActiva,
+                            edificioHover: edificioHover,
+                            progresoAnimacion: progress,
+                            progresoRecorridoUsuario: _progresoRecorridoUsuario,
+                            posicionUsuarioEnVivo: _posicionUsuarioEnVivo,
+                            offsetX: offsetX,
+                            offsetY: offsetY,
+                            imgW: imgW,
+                            imgH: imgH,
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
-                _buildEndpointPin(
-                  posX: offsetX + rutaActiva.origen.posX * imgW,
-                  posY: offsetY + rutaActiva.origen.posY * imgH,
-                  maxW: availW,
-                  maxH: availH,
-                  colorFondo: AppColors.secondaryBlue,
-                  icono: Icons.my_location,
-                  etiqueta: 'ORIGEN: ${rutaActiva.origen.codigo}',
-                ),
+                // Oculta el label flotante cuando hay ubicacion en vivo para no tapar el mapa (solo muestra el punto azul)
+                if (_posicionUsuarioEnVivo == null)
+                  _buildEndpointPin(
+                    posX: offsetX + rutaActiva.origen.posX * imgW,
+                    posY: offsetY + rutaActiva.origen.posY * imgH,
+                    maxW: availW,
+                    maxH: availH,
+                    colorFondo: AppColors.secondaryBlue,
+                    icono: Icons.my_location,
+                    etiqueta: 'ORIGEN: ${rutaActiva.origen.codigo}',
+                  ),
                 if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo)
                   _buildEndpointPin(
                     posX: offsetX + rutaActiva.destino.posX * imgW,
@@ -1849,6 +2721,36 @@ class _InteractiveCampusMapSectionState
   }
 }
 
+// Resultado auxiliar de proyectar la coordenada GPS del usuario sobre la polilinea de la ruta
+class _ResultadoProyeccionPolilinea {
+  final double progreso;
+  final double distanciaNormalizada;
+  final PuntoMapaUaa puntoProyectado;
+
+  const _ResultadoProyeccionPolilinea({
+    required this.progreso,
+    required this.distanciaNormalizada,
+    required this.puntoProyectado,
+  });
+}
+
+// Pintor ligero que solo reproduce la capa base vectorial ya grabada
+class _StaticMapPicturePainter extends CustomPainter {
+  final ui.Picture picture;
+
+  const _StaticMapPicturePainter(this.picture);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPicture(picture);
+  }
+
+  @override
+  bool shouldRepaint(covariant _StaticMapPicturePainter oldDelegate) {
+    return oldDelegate.picture != picture;
+  }
+}
+
 // Pintor vectorial 1:1 que renderiza el mapa completo con vectores, bandera de Mexico, banos, guardias, E y rutas
 class _VectorCampusOverlayPainter extends CustomPainter {
   final int idCampus;
@@ -1858,6 +2760,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
   final RutaPeatonalUaa rutaActiva;
   final EdificioMapaUaa? edificioHover;
   final double progresoAnimacion;
+  final double progresoRecorridoUsuario;
+  final PuntoMapaUaa? posicionUsuarioEnVivo;
   final double offsetX;
   final double offsetY;
   final double imgW;
@@ -1871,6 +2775,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     required this.rutaActiva,
     required this.edificioHover,
     required this.progresoAnimacion,
+    this.progresoRecorridoUsuario = 0.0,
+    this.posicionUsuarioEnVivo,
     required this.offsetX,
     required this.offsetY,
     required this.imgW,
@@ -1971,27 +2877,16 @@ class _VectorCampusOverlayPainter extends CustomPainter {
 
     // Sombras suaves de pliegue para dar volumen natural al ondeo
     canvas.drawRect(
-      Rect.fromLTRB(
-        poleX + sw * 0.85,
-        topBound,
-        poleX + sw * 1.08,
-        botBound,
-      ),
+      Rect.fromLTRB(poleX + sw * 0.85, topBound, poleX + sw * 1.08, botBound),
       Paint()..color = Colors.black.withValues(alpha: 0.08),
     );
     canvas.drawRect(
-      Rect.fromLTRB(
-        poleX + sw * 1.92,
-        topBound,
-        poleX + sw * 2.15,
-        botBound,
-      ),
+      Rect.fromLTRB(poleX + sw * 1.92, topBound, poleX + sw * 2.15, botBound),
       Paint()..color = Colors.black.withValues(alpha: 0.08),
     );
 
     // Escudo Nacional al centro de la franja blanca (Aguila y laurel)
-    final Offset eagleCenter =
-        Offset(poleX + sw * 1.50, fy + fh * 0.49);
+    final Offset eagleCenter = Offset(poleX + sw * 1.50, fy + fh * 0.49);
     canvas.drawCircle(
       eagleCenter,
       2.2 * escala,
@@ -2049,10 +2944,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       offsetX + 0.473 * imgW,
       offsetY + 0.869 * imgH,
     );
-    canvas.drawRect(
-      patioBlanco,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawRect(patioBlanco, Paint()..color = Colors.white);
   }
 
   // Dibuja una cancha de futbol reglamentaria con areas grandes, areas chicas, medias lunas y circulo central
@@ -2077,7 +2969,11 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       canvas.rotate(anguloGrados * math.pi / 180.0);
     }
 
-    final Rect outer = Rect.fromCenter(center: Offset.zero, width: w, height: h);
+    final Rect outer = Rect.fromCenter(
+      center: Offset.zero,
+      width: w,
+      height: h,
+    );
     canvas.drawRect(outer, paint);
 
     if (!ejeHorizontal) {
@@ -2091,10 +2987,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       final double goalH = h * 0.07;
 
       // Area superior e inferior
-      canvas.drawRect(
-        Rect.fromLTWH(-penW * 0.5, -h * 0.5, penW, penH),
-        paint,
-      );
+      canvas.drawRect(Rect.fromLTWH(-penW * 0.5, -h * 0.5, penW, penH), paint);
       canvas.drawRect(
         Rect.fromLTWH(-goalW * 0.5, -h * 0.5, goalW, goalH),
         paint,
@@ -2141,10 +3034,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       final double goalH = h * 0.28;
 
       // Area izquierda y derecha
-      canvas.drawRect(
-        Rect.fromLTWH(-w * 0.5, -penH * 0.5, penW, penH),
-        paint,
-      );
+      canvas.drawRect(Rect.fromLTWH(-w * 0.5, -penH * 0.5, penW, penH), paint);
       canvas.drawRect(
         Rect.fromLTWH(-w * 0.5, -goalH * 0.5, goalW, goalH),
         paint,
@@ -2204,13 +3094,27 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     canvas.translate(cx, cy);
     canvas.rotate(anguloGrados * math.pi / 180.0);
 
-    canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: w, height: h), paint);
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset.zero, width: w, height: h),
+      paint,
+    );
     final double iw = w * 0.78;
     final double ih = h * 0.72;
-    canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: iw, height: ih), paint);
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset.zero, width: iw, height: ih),
+      paint,
+    );
     canvas.drawLine(Offset(0, -ih * 0.5), Offset(0, ih * 0.5), paint);
-    canvas.drawLine(Offset(-iw * 0.25, -ih * 0.5), Offset(-iw * 0.25, ih * 0.5), paint);
-    canvas.drawLine(Offset(iw * 0.25, -ih * 0.5), Offset(iw * 0.25, ih * 0.5), paint);
+    canvas.drawLine(
+      Offset(-iw * 0.25, -ih * 0.5),
+      Offset(-iw * 0.25, ih * 0.5),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(iw * 0.25, -ih * 0.5),
+      Offset(iw * 0.25, ih * 0.5),
+      paint,
+    );
     canvas.drawLine(Offset(-iw * 0.25, 0), Offset(iw * 0.25, 0), paint);
 
     canvas.restore();
@@ -2221,12 +3125,15 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     Canvas canvas,
     double escala,
   ) {
-    final Color walkwayCol =
-        isDark ? const Color(0xFF6B7485) : const Color(0xFFBCBEC4);
-    final Color portalWallCol =
-        isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B);
-    final Color tunnelFillCol =
-        isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8);
+    final Color walkwayCol = isDark
+        ? const Color(0xFF6B7485)
+        : const Color(0xFFBCBEC4);
+    final Color portalWallCol = isDark
+        ? const Color(0xFFE2E8F0)
+        : const Color(0xFF1E293B);
+    final Color tunnelFillCol = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFF94A3B8);
 
     // 1. Sendero peatonal desde la salida norte del Tunel 208 hasta la explanada de la Unidad Deportiva
     final List<Offset> ptsSenderoDeportiva = <Offset>[
@@ -2312,10 +3219,14 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         ..isAntiAlias = true;
 
       for (final double side in <double>[-1.0, 1.0]) {
-        final Offset w1 =
-            Offset(p1.dx + nx * halfW * side, p1.dy + ny * halfW * side);
-        final Offset w2 =
-            Offset(p2.dx + nx * halfW * side, p2.dy + ny * halfW * side);
+        final Offset w1 = Offset(
+          p1.dx + nx * halfW * side,
+          p1.dy + ny * halfW * side,
+        );
+        final Offset w2 = Offset(
+          p2.dx + nx * halfW * side,
+          p2.dy + ny * halfW * side,
+        );
         final Offset f1 = Offset(
           w1.dx + (-ux + nx * side * 0.85) * wingLen,
           w1.dy + (-uy + ny * side * 0.85) * wingLen,
@@ -2408,6 +3319,70 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     );
   }
 
+  // Dibuja indicadores discretos y sobrios en las entradas oficiales de la UAA sin saturar el mapa ni tapar iconos
+  void _dibujarMarcadoresEntradasOficiales(
+    Canvas canvas,
+    bool esSur,
+    double escala,
+  ) {
+    final List<(String, double, double, bool)> entradas = esSur
+        ? const <(String, double, double, bool)>[
+            ('▼ ACCESO PRINCIPAL', 0.892, 0.168, true),
+          ]
+        : const <(String, double, double, bool)>[
+            ('▲ ACCESO PRINCIPAL', 0.435, 0.956, true),
+            ('► ACCESO PONIENTE', 0.105, 0.660, false),
+            ('► ACCESO NORTE', 0.298, 0.196, false),
+            ('▲ ACCESO DEPORTIVA', 0.668, 0.450, false),
+            ('▲ ACCESO SALUD', 0.790, 0.968, false),
+            ('▲ ACCESO CCDC', 0.910, 0.976, false),
+          ];
+
+    for (final (String texto, double nx, double ny, bool esPrincipal)
+        in entradas) {
+      final double cx = offsetX + nx * imgW;
+      final double cy = offsetY + ny * imgH;
+
+      final TextPainter tp = TextPainter(
+        text: TextSpan(
+          text: texto,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: (esPrincipal ? 6.4 : 5.8) * escala,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.25,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final RRect pill = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, cy),
+          width: tp.width + 7.2 * escala,
+          height: tp.height + 3.0 * escala,
+        ),
+        Radius.circular(3.2 * escala),
+      );
+
+      canvas.drawRRect(
+        pill,
+        Paint()
+          ..color =
+              (esPrincipal ? const Color(0xFFB91C1C) : const Color(0xFF0F2942))
+                  .withValues(alpha: 0.92),
+      );
+      canvas.drawRRect(
+        pill,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.90)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.85 * escala,
+      );
+      tp.paint(canvas, Offset(cx - tp.width / 2.0, cy - tp.height / 2.0));
+    }
+  }
+
   // Dibuja los detalles arquitectonicos finos del Estadio Universitario, las 7 Canchas junto a la Bandera y Flecha de Norte
   void _dibujarDetallesEstadioYCanchas(
     Canvas canvas,
@@ -2415,9 +3390,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     double escala,
   ) {
     final Paint grassCourtPaint = Paint()
-      ..color = isDark
-          ? const Color(0xFF61753A)
-          : const Color(0xFFA4B252)
+      ..color = isDark ? const Color(0xFF61753A) : const Color(0xFFA4B252)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.85 * escala
       ..isAntiAlias = true;
@@ -2579,11 +3552,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
   }
 
   // Dibuja cada uno de los pictogramas oficiales del plano DGIU (Banos, Vigilancia, E, Cafeteria, Biblioteca, Auditorio)
-  void _dibujarPictogramasOficiales(
-    Canvas canvas,
-    bool esSur,
-    double escala,
-  ) {
+  void _dibujarPictogramasOficiales(Canvas canvas, bool esSur, double escala) {
     final List<IconoVectorialMapa> iconos = esSur
         ? CampusVectorLayers.iconosSur
         : CampusVectorLayers.iconosCentral;
@@ -2598,11 +3567,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       if (item.tipo == TipoIconoMapaUaa.estacionamiento) {
         // Simbolo oficial (E): Circulo blanco con anillo rojo y letra E negra al centro
         final double rE = boxSize * 0.56;
-        canvas.drawCircle(
-          Offset(cx, cy),
-          rE,
-          Paint()..color = Colors.white,
-        );
+        canvas.drawCircle(Offset(cx, cy), rE, Paint()..color = Colors.white);
         canvas.drawCircle(
           Offset(cx, cy),
           rE,
@@ -2623,10 +3588,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
           ),
           textDirection: TextDirection.ltr,
         )..layout();
-        tpE.paint(
-          canvas,
-          Offset(cx - tpE.width / 2.0, cy - tpE.height / 2.0),
-        );
+        tpE.paint(canvas, Offset(cx - tpE.width / 2.0, cy - tpE.height / 2.0));
         continue;
       }
 
@@ -2713,8 +3675,9 @@ class _VectorCampusOverlayPainter extends CustomPainter {
 
     // 3. Cuerpos de agua (Rio San Pedro, Alberca Universitaria 209 y Canal Central)
     if (!esSur) {
-      final Path aguaPath =
-          _construirPathEvenOdd(CampusVectorLayers.centralAgua);
+      final Path aguaPath = _construirPathEvenOdd(
+        CampusVectorLayers.centralAgua,
+      );
       canvas.drawPath(
         aguaPath,
         Paint()
@@ -2782,6 +3745,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     if (!esSur) {
       _dibujarBanderaMonumentalMexico(canvas, escala);
     }
+    _dibujarMarcadoresEntradasOficiales(canvas, esSur, escala);
 
     // 8. Todos los Pictogramas Oficiales: Banos, Guardias/Vigilancia, Estacionamientos (E), Cafeterias, Bibliotecas y Auditorios
     _dibujarPictogramasOficiales(canvas, esSur, escala);
@@ -2858,8 +3822,10 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      final Offset textOffset =
-          Offset(px - tpFill.width / 2.0, py - tpFill.height / 2.0);
+      final Offset textOffset = Offset(
+        px - tpFill.width / 2.0,
+        py - tpFill.height / 2.0,
+      );
       tpHalo.paint(canvas, textOffset);
       tpFill.paint(canvas, textOffset);
     }
@@ -2927,13 +3893,16 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       );
     }
 
-    _dibujarPoligonoEdificio(
-      canvas,
-      rutaActiva.origen,
-      colorBorde: AppColors.secondaryBlue,
-      opacidadRelleno: 0.30,
-      grosorBorde: 2.8,
-    );
+    // Solo resalta el poligono del edificio de origen cuando no se esta usando el punto GPS en vivo
+    if (posicionUsuarioEnVivo == null) {
+      _dibujarPoligonoEdificio(
+        canvas,
+        rutaActiva.origen,
+        colorBorde: AppColors.secondaryBlue,
+        opacidadRelleno: 0.30,
+        grosorBorde: 2.8,
+      );
+    }
 
     if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo) {
       _dibujarPoligonoEdificio(
@@ -2950,14 +3919,21 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       return;
     }
 
-    final List<Offset> puntos = nodosRuta
+    List<Offset> puntos = nodosRuta
         .map(
-          (NodoPasilloUaa n) => Offset(
-            offsetX + n.posX * imgW,
-            offsetY + n.posY * imgH,
-          ),
+          (NodoPasilloUaa n) =>
+              Offset(offsetX + n.posX * imgW, offsetY + n.posY * imgH),
         )
         .toList();
+
+    // Si hay ubicacion en vivo (en area verde, pasillo o calle exterior), evita que la ruta entre al centro del edificio
+    // de origen y salga haciendo un bucle; conecta el punto GPS en vivo directo al pasillo o acceso mas cercano.
+    if (posicionUsuarioEnVivo != null &&
+        progresoRecorridoUsuario <= 0.005 &&
+        puntos.length >= 2 &&
+        !rutaActiva.origen.codigo.startsWith('ACCESO')) {
+      puntos = puntos.sublist(1);
+    }
 
     if (puntos.length == 1) {
       final Paint haloPaint = Paint()
@@ -2975,43 +3951,69 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       longitudTotal += segLen;
     }
 
+    final double distanciaInicioRecorte =
+        longitudTotal * progresoRecorridoUsuario.clamp(0.0, 1.0);
     final double distanciaVisible =
         longitudTotal * progresoAnimacion.clamp(0.0, 1.0);
 
-    final Path rutaPath = Path()..moveTo(puntos.first.dx, puntos.first.dy);
+    final Path rutaPath = Path();
+    bool pathIniciado = false;
+    Offset puntoInicioActivo = puntos.first;
     double acumulado = 0.0;
 
     for (int i = 0; i < puntos.length - 1; i++) {
       final double segLen = longitudesSegmentos[i];
-      if (acumulado + segLen <= distanciaVisible) {
-        rutaPath.lineTo(puntos[i + 1].dx, puntos[i + 1].dy);
-        acumulado += segLen;
-      } else {
-        final double restante = distanciaVisible - acumulado;
-        if (restante > 0 && segLen > 0) {
-          final double t = (restante / segLen).clamp(0.0, 1.0);
-          final Offset parcial = Offset.lerp(puntos[i], puntos[i + 1], t)!;
-          rutaPath.lineTo(parcial.dx, parcial.dy);
-        }
+      final double segStart = acumulado;
+      final double segEnd = acumulado + segLen;
+      acumulado = segEnd;
+
+      // Omite por completo los tramos que ya quedaron atras de la ubicacion actual del usuario (se borran como en Google Maps)
+      if (segEnd <= distanciaInicioRecorte) {
+        continue;
+      }
+      if (segStart >= distanciaVisible) {
         break;
       }
+
+      final double localStart = math.max(
+        0.0,
+        distanciaInicioRecorte - segStart,
+      );
+      final double localEnd = math.min(segLen, distanciaVisible - segStart);
+      if (localEnd <= localStart || segLen <= 1e-6) {
+        continue;
+      }
+
+      final double t0 = (localStart / segLen).clamp(0.0, 1.0);
+      final double t1 = (localEnd / segLen).clamp(0.0, 1.0);
+      final Offset pStart = Offset.lerp(puntos[i], puntos[i + 1], t0)!;
+      final Offset pEnd = Offset.lerp(puntos[i], puntos[i + 1], t1)!;
+
+      if (!pathIniciado) {
+        rutaPath.moveTo(pStart.dx, pStart.dy);
+        puntoInicioActivo = pStart;
+        pathIniciado = true;
+      }
+      rutaPath.lineTo(pEnd.dx, pEnd.dy);
     }
 
-    final Paint bordeBlancoPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(rutaPath, bordeBlancoPaint);
+    if (pathIniciado) {
+      final Paint bordeBlancoPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(rutaPath, bordeBlancoPaint);
 
-    final Paint lineaRutaPaint = Paint()
-      ..color = AppColors.secondaryBlue
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(rutaPath, lineaRutaPaint);
+      final Paint lineaRutaPaint = Paint()
+        ..color = AppColors.secondaryBlue
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(rutaPath, lineaRutaPaint);
+    }
 
     final Paint puntoBlancoPaint = Paint()
       ..color = Colors.white
@@ -3020,17 +4022,86 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       ..color = AppColors.primaryNavy
       ..style = PaintingStyle.fill;
 
+    // Solo dibuja los nodos intermedios que aun estan por delante del usuario
+    double distNodo = 0.0;
     for (int i = 1; i < puntos.length - 1; i++) {
-      canvas.drawCircle(puntos[i], 3.8, puntoBlancoPaint);
-      canvas.drawCircle(puntos[i], 2.3, puntoPasilloPaint);
+      distNodo += longitudesSegmentos[i - 1];
+      if (distNodo > distanciaInicioRecorte + 2.0) {
+        canvas.drawCircle(puntos[i], 3.8, puntoBlancoPaint);
+        canvas.drawCircle(puntos[i], 2.3, puntoPasilloPaint);
+      }
     }
 
-    canvas.drawCircle(puntos.first, 7.5, puntoBlancoPaint);
-    canvas.drawCircle(
-      puntos.first,
-      5.2,
-      Paint()..color = AppColors.secondaryBlue,
-    );
+    // Punto de ubicacion actual del usuario (estilo Google Maps con halo azul cuando esta avanzando)
+    final Offset posMarcadorUsuario = posicionUsuarioEnVivo != null
+        ? Offset(
+            offsetX + posicionUsuarioEnVivo!.x * imgW,
+            offsetY + posicionUsuarioEnVivo!.y * imgH,
+          )
+        : puntoInicioActivo;
+
+    // Si el usuario esta en un area verde, explanada o calle exterior alejada del pasillo inicial,
+    // traza el camino conector desde su punto azul hasta el inicio del pasillo para que nunca quede sin rastro.
+    if (posicionUsuarioEnVivo != null &&
+        pathIniciado &&
+        (posMarcadorUsuario - puntoInicioActivo).distance > 3.0) {
+      final Path conectorPath = Path()
+        ..moveTo(posMarcadorUsuario.dx, posMarcadorUsuario.dy)
+        ..lineTo(puntoInicioActivo.dx, puntoInicioActivo.dy);
+
+      canvas.drawPath(
+        conectorPath,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7.0
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawPath(
+        conectorPath,
+        Paint()
+          ..color = AppColors.secondaryBlue
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.8
+          ..strokeCap = StrokeCap.round,
+      );
+
+      // Puntos guia sobre el tramo de aproximacion (area verde o calle exterior hacia el acceso/pasillo)
+      final double distConector =
+          (puntoInicioActivo - posMarcadorUsuario).distance;
+      final int pasos = (distConector / 16.0).floor();
+      for (int s = 1; s <= pasos; s++) {
+        final double t = s / (pasos + 1);
+        final Offset pt = Offset.lerp(
+          posMarcadorUsuario,
+          puntoInicioActivo,
+          t,
+        )!;
+        canvas.drawCircle(pt, 3.4, puntoBlancoPaint);
+        canvas.drawCircle(pt, 2.0, puntoPasilloPaint);
+      }
+    }
+
+    if (posicionUsuarioEnVivo != null || progresoRecorridoUsuario > 0.0) {
+      canvas.drawCircle(
+        posMarcadorUsuario,
+        14.5,
+        Paint()..color = const Color(0xFF1A73E8).withValues(alpha: 0.22),
+      );
+      canvas.drawCircle(posMarcadorUsuario, 8.2, puntoBlancoPaint);
+      canvas.drawCircle(
+        posMarcadorUsuario,
+        5.8,
+        Paint()..color = const Color(0xFF1A73E8),
+      );
+    } else {
+      canvas.drawCircle(puntos.first, 7.5, puntoBlancoPaint);
+      canvas.drawCircle(
+        puntos.first,
+        5.2,
+        Paint()..color = AppColors.secondaryBlue,
+      );
+    }
 
     canvas.drawCircle(puntos.last, 8.0, puntoBlancoPaint);
     canvas.drawCircle(
@@ -3043,12 +4114,18 @@ class _VectorCampusOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _VectorCampusOverlayPainter oldDelegate) {
     return oldDelegate.progresoAnimacion != progresoAnimacion ||
+        oldDelegate.progresoRecorridoUsuario != progresoRecorridoUsuario ||
+        oldDelegate.posicionUsuarioEnVivo?.x != posicionUsuarioEnVivo?.x ||
+        oldDelegate.posicionUsuarioEnVivo?.y != posicionUsuarioEnVivo?.y ||
         oldDelegate.dibujarCapasBaseVectoriales !=
             dibujarCapasBaseVectoriales ||
         oldDelegate.isDark != isDark ||
         oldDelegate.idCampus != idCampus ||
-        oldDelegate.rutaActiva != rutaActiva ||
+        oldDelegate.rutaActiva.origen.idNodo != rutaActiva.origen.idNodo ||
+        oldDelegate.rutaActiva.destino.idNodo != rutaActiva.destino.idNodo ||
         oldDelegate.edificioHover != edificioHover ||
+        oldDelegate.offsetX != offsetX ||
+        oldDelegate.offsetY != offsetY ||
         oldDelegate.imgW != imgW ||
         oldDelegate.imgH != imgH;
   }
