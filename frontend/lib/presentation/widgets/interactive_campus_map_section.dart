@@ -49,6 +49,19 @@ class _InteractiveCampusMapSectionState
   bool _mostrarAccesosMapa = true;
   bool _mostrarEtiquetasMapa = true;
   double _escalaZoom = 2.15;
+  bool _modoDespejado = false;
+  PuntoMapaUaa? _puntoServicioCercano;
+  TipoIconoMapaUaa? _tipoServicioCercano;
+
+  static const List<TipoIconoMapaUaa> _tiposServiciosCercanos =
+      <TipoIconoMapaUaa>[
+        TipoIconoMapaUaa.estacionamiento,
+        TipoIconoMapaUaa.sanitarios,
+        TipoIconoMapaUaa.cafeteria,
+        TipoIconoMapaUaa.biblioteca,
+        TipoIconoMapaUaa.vigilancia,
+        TipoIconoMapaUaa.auditorio,
+      ];
 
   // Estado de geolocalizacion automatica en tiempo real y recorte progresivo de ruta
   final GeolocationServiceUaa _geolocationService = GeolocationServiceUaa();
@@ -566,9 +579,11 @@ class _InteractiveCampusMapSectionState
     required bool mostrarServicios,
     required bool mostrarAccesos,
     required bool mostrarEtiquetas,
+    required String categoriaFiltro,
+    required List<EdificioMapaUaa> edificiosFiltrados,
   }) {
     final String clave =
-        '$_idCampusMapa|$isDark|${imgW.round()}|${imgH.round()}|${offsetX.round()}|${offsetY.round()}|$mostrarNumeros|$mostrarServicios|$mostrarAccesos|$mostrarEtiquetas';
+        '$_idCampusMapa|$isDark|${imgW.round()}|${imgH.round()}|${offsetX.round()}|${offsetY.round()}|$mostrarNumeros|$mostrarServicios|$mostrarAccesos|$mostrarEtiquetas|$categoriaFiltro';
     final ui.Picture? pictureGuardada = _pictureBase;
     if (pictureGuardada != null && _clavePictureBase == clave) {
       return pictureGuardada;
@@ -583,6 +598,8 @@ class _InteractiveCampusMapSectionState
       mostrarServicios: mostrarServicios,
       mostrarAccesos: mostrarAccesos,
       mostrarEtiquetas: mostrarEtiquetas,
+      categoriaFiltro: categoriaFiltro,
+      edificiosFiltrados: edificiosFiltrados,
       isDark: isDark,
       edificiosCampus: edificiosCampus,
       rutaActiva: rutaActiva,
@@ -659,6 +676,8 @@ class _InteractiveCampusMapSectionState
   void _cambiarCampusMapa(int idCampus) {
     setState(() {
       _idCampusMapa = idCampus;
+      _puntoServicioCercano = null;
+      _tipoServicioCercano = null;
       _inicializarRutaPorDefecto(idCampus);
       _busquedaTexto = '';
       _mostrarSugerencias = false;
@@ -675,9 +694,14 @@ class _InteractiveCampusMapSectionState
     EdificioMapaUaa edificio, {
     bool enfocarCamara = true,
   }) {
+    if (!_edificioPermitido(edificio)) {
+      return;
+    }
     setState(() {
       _idNodoDestino = edificio.idNodo;
       _progresoRecorridoUsuario = 0.0;
+      _puntoServicioCercano = null;
+      _tipoServicioCercano = null;
       if (_estadoUbicacion == EstadoUbicacionMapaUaa.fueraDelCampus) {
         final List<EntradaSugeridaUaa> entradas =
             GeolocationServiceUaa.obtenerEntradasPorCampus(_idCampusMapa);
@@ -810,38 +834,71 @@ class _InteractiveCampusMapSectionState
     if (cat.isEmpty) {
       return true;
     }
+    // Las entradas no cuentan como edificios para los filtros.
+    if (e.codigo.startsWith('ACCESO')) {
+      return false;
+    }
     final String nom = e.nombre.toLowerCase();
     final String zon = e.zona.toLowerCase();
     final String cod = e.codigo.toLowerCase();
 
+    final bool administrativo = zon.contains('administrativo');
+    final bool biblioteca =
+        nom.contains('biblioteca') || nom.contains('infoteca');
+    final bool cafeteria = nom.contains('cafeteria') || nom.contains('comedor');
+    final bool aulas =
+        zon.contains('aulas') ||
+        nom.contains('laboratorio') ||
+        nom.contains('taller');
+    final bool cajas =
+        nom.contains('cajas') ||
+        nom.contains('control escolar') ||
+        nom.contains('finanzas') ||
+        nom.contains('servicios estudiantiles');
+    final bool deportes =
+        nom.contains('alberca') ||
+        nom.contains('gimnasio') ||
+        nom.contains('polyforum') ||
+        nom.contains('poliforum') ||
+        nom.contains('deport') ||
+        nom.contains('auditorio') ||
+        nom.contains('artes') ||
+        cod == 'pdc';
+
     switch (cat) {
       case 'Administrativos':
-        return zon.contains('administrativo');
+        return administrativo;
       case 'Bibliotecas':
-        return nom.contains('biblioteca') || nom.contains('infoteca');
+        return biblioteca;
       case 'Cafeterias':
-        return nom.contains('cafeteria') || nom.contains('comedor');
+        return cafeteria;
       case 'Aulas y Labs':
-        return zon.contains('aulas') ||
-            nom.contains('laboratorio') ||
-            nom.contains('taller');
+        return aulas;
       case 'Cajas y Control':
-        return nom.contains('cajas') ||
-            nom.contains('control escolar') ||
-            nom.contains('finanzas') ||
-            nom.contains('servicios estudiantiles');
+        return cajas;
       case 'Deportes y Cultura':
-        return nom.contains('alberca') ||
-            nom.contains('gimnasio') ||
-            nom.contains('polyforum') ||
-            nom.contains('poliforum') ||
-            nom.contains('deport') ||
-            nom.contains('auditorio') ||
-            nom.contains('artes') ||
-            cod == 'pdc';
+        return deportes;
+      case 'Otros':
+        return !administrativo &&
+            !biblioteca &&
+            !cafeteria &&
+            !aulas &&
+            !cajas &&
+            !deportes;
       default:
         return true;
     }
+  }
+
+  // Indica si un edificio se puede elegir como destino con el filtro activo
+  bool _edificioPermitido(EdificioMapaUaa edificio) {
+    if (_categoriaFiltroActiva.isEmpty) {
+      return true;
+    }
+    if (edificio.codigo.startsWith('ACCESO')) {
+      return true;
+    }
+    return _cumpleCategoriaRapida(edificio, _categoriaFiltroActiva);
   }
 
   // Filtra y ordena los edificios dando prioridad absoluta a la coincidencia exacta de numero
@@ -1093,7 +1150,7 @@ class _InteractiveCampusMapSectionState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         // En PC/Laptop: Barra vertical izquierda estilo Google Maps (Rutas, Guardado, Recientes, Campus)
-        if (isPcOrLaptop)
+        if (isPcOrLaptop && !_modoDespejado)
           _buildGoogleMapsLeftRail(
             isDark: isDark,
             todosEdificios: todosEdificios,
@@ -1141,7 +1198,9 @@ class _InteractiveCampusMapSectionState
                 ),
 
                 // 3. FICHA COMPACTA DE HOVER AL PASAR EL CURSOR SOBRE UN EDIFICIO
-                if (edificioHover != null && !_mostrarSugerencias)
+                if (edificioHover != null &&
+                    !_mostrarSugerencias &&
+                    !_modoDespejado)
                   Positioned(
                     top: isMobile ? 114 : 68,
                     right: 14,
@@ -1186,73 +1245,83 @@ class _InteractiveCampusMapSectionState
                     ),
                   ),
 
-                // 4. BOTON CUADRADO INFERIOR IZQUIERDO DE CAMBIO DE VISTA (ORIGINAL / INTERACTIVO)
+                // 4. BOTON INFERIOR IZQUIERDO DE VISTA ORIGINAL Y BOTON DESPEJAR
                 Positioned(
                   bottom: 22,
                   left: 14,
-                  child: _buildGoogleMapsCapasSquareButton(isDark),
+                  child: _modoDespejado
+                      ? _buildRestaurarInterfazButton(isDark)
+                      : _buildGoogleMapsCapasSquareButton(isDark),
                 ),
+                if (!_modoDespejado)
+                  Positioned(
+                    bottom: 100,
+                    left: 14,
+                    child: _buildDespejarInterfazButton(isDark),
+                  ),
 
                 // 5. CONTROLES INFERIORES DERECHOS: CIRCULO MI UBICACION + PILDORA VERTICAL (+ / -)
-                Positioned(
-                  bottom: 22,
-                  right: 14,
-                  child: _buildGoogleMapsRightControls(isDark, rutaActiva),
-                ),
+                if (!_modoDespejado)
+                  Positioned(
+                    bottom: 22,
+                    right: 14,
+                    child: _buildGoogleMapsRightControls(isDark, rutaActiva),
+                  ),
 
                 // 6. BARRA INFERIOR DERECHA DE DATOS DEL MAPA Y ESCALA
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      color: (isDark ? AppColors.darkSurface : Colors.white)
-                          .withValues(alpha: 0.85),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(
-                            'Datos del plano oficial DGIU UAA 2026 • ${_idCampusMapa == 1 ? 'Campus Central (154 edificios)' : 'Campus Sur (19 edificios)'} • 50 m ',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isDark
-                                  ? AppColors.darkTextSecondary
-                                  : AppColors.lightTextSecondary,
+                if (!_modoDespejado)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        color: (isDark ? AppColors.darkSurface : Colors.white)
+                            .withValues(alpha: 0.85),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(
+                              'Datos del plano oficial DGIU UAA 2026 • ${_idCampusMapa == 1 ? 'Campus Central (154 edificios)' : 'Campus Sur (19 edificios)'} • 50 m ',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.lightTextSecondary,
+                              ),
                             ),
-                          ),
-                          Container(
-                            width: 34,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                left: BorderSide(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black87,
-                                ),
-                                right: BorderSide(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black87,
-                                ),
-                                bottom: BorderSide(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black87,
-                                  width: 1.5,
+                            Container(
+                              width: 34,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                  ),
+                                  right: BorderSide(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                  ),
+                                  bottom: BorderSide(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1455,6 +1524,10 @@ class _InteractiveCampusMapSectionState
       sugerencias: sugerencias,
       rutaActiva: rutaActiva,
     );
+
+    if (_modoDespejado) {
+      return searchPillColumn;
+    }
 
     final Widget categoryChipsRow = _buildGoogleMapsCategoryChipsBar(
       isDark: isDark,
@@ -2002,6 +2075,7 @@ class _InteractiveCampusMapSectionState
   // Barra horizontal superior: primero muestra la insignia de Tiempo Estimado (actualizada con el avance) y luego los chips
   Widget _buildGoogleMapsCategoryChipsBar({required bool isDark}) {
     final List<Map<String, Object>> categorias = <Map<String, Object>>[
+      <String, Object>{'id': 'TODOS', 'label': 'Todos', 'icon': Icons.apps},
       <String, Object>{
         'id': 'Administrativos',
         'label': 'Administrativos',
@@ -2032,6 +2106,11 @@ class _InteractiveCampusMapSectionState
         'label': 'Deportes y Auditorios',
         'icon': Icons.sports_basketball_outlined,
       },
+      <String, Object>{
+        'id': 'Otros',
+        'label': 'Otros',
+        'icon': Icons.category_outlined,
+      },
     ];
 
     final Color chipBg = isDark ? AppColors.darkSurface : Colors.white;
@@ -2051,7 +2130,10 @@ class _InteractiveCampusMapSectionState
           final String id = cat['id']! as String;
           final String label = cat['label']! as String;
           final IconData icon = cat['icon']! as IconData;
-          final bool activo = _categoriaFiltroActiva == id;
+          final bool esTodos = id == 'TODOS';
+          final bool activo = esTodos
+              ? _categoriaFiltroActiva.isEmpty
+              : _categoriaFiltroActiva == id;
           final Color bgColor = activo ? AppColors.secondaryBlue : chipBg;
 
           return Material(
@@ -2061,13 +2143,14 @@ class _InteractiveCampusMapSectionState
               borderRadius: BorderRadius.circular(18),
               onTap: () {
                 setState(() {
-                  if (_categoriaFiltroActiva == id) {
+                  if (esTodos || _categoriaFiltroActiva == id) {
                     _categoriaFiltroActiva = '';
-                    _mostrarSugerencias = false;
                   } else {
                     _categoriaFiltroActiva = id;
-                    _mostrarSugerencias = true;
                   }
+                  _mostrarSugerencias = false;
+                  _puntoServicioCercano = null;
+                  _tipoServicioCercano = null;
                 });
               },
               child: Container(
@@ -2245,6 +2328,83 @@ class _InteractiveCampusMapSectionState
     );
   }
 
+  // Oculta los controles del mapa para dejar solo la ruta y la barra de busqueda
+  void _despejarInterfaz() {
+    setState(() {
+      _modoDespejado = true;
+      _categoriaFiltroActiva = '';
+      _puntoServicioCercano = null;
+      _tipoServicioCercano = null;
+      _mostrarSugerencias = false;
+      _mostrarPanelRutas = false;
+    });
+  }
+
+  // Vuelve a mostrar todos los controles y filtros del mapa
+  void _mostrarInterfazCompleta() {
+    setState(() {
+      _modoDespejado = false;
+    });
+  }
+
+  // Boton flotante para limpiar la interfaz del mapa
+  Widget _buildDespejarInterfazButton(bool isDark) {
+    final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
+    final Color iconCol = isDark ? Colors.white : AppColors.primaryNavy;
+    return Tooltip(
+      message: 'Despejar interfaz',
+      child: Material(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _despejarInterfaz,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderCol),
+            ),
+            child: Icon(Icons.fullscreen, size: 21, color: iconCol),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Boton flotante para recuperar los controles del mapa
+  Widget _buildRestaurarInterfazButton(bool isDark) {
+    final Color cardBg = isDark ? AppColors.darkSurface : Colors.white;
+    final Color borderCol = isDark
+        ? AppColors.darkBorder
+        : const Color(0xFFDADCE0);
+    final Color iconCol = isDark ? Colors.white : AppColors.primaryNavy;
+    return Tooltip(
+      message: 'Mostrar controles del mapa',
+      child: Material(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _mostrarInterfazCompleta,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderCol),
+            ),
+            child: Icon(Icons.fullscreen_exit, size: 21, color: iconCol),
+          ),
+        ),
+      ),
+    );
+  }
+
   // Boton cuadrado inferior izquierdo para alternar entre vista Interactiva (por defecto) y Mapa Original
   Widget _buildGoogleMapsCapasSquareButton(bool isDark) {
     final String etiquetaBoton = _modoVectorialEstilizado
@@ -2374,7 +2534,7 @@ class _InteractiveCampusMapSectionState
                       }),
                       title: const Text('Servicios y pictogramas'),
                       subtitle: const Text(
-                        'Banos, cafeterias, estacionamientos y vigilancia',
+                        'Baños, cafeterias, estacionamientos y vigilancia',
                       ),
                       secondary: const Icon(Icons.category_outlined),
                     ),
@@ -2404,6 +2564,203 @@ class _InteractiveCampusMapSectionState
     );
   }
 
+  // Abre la lista de servicios para localizar el mas cercano a la ubicacion actual
+  void _abrirServiciosCercanos() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const Text(
+                  'Servicios cercanos',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Elige el servicio mas cercano a tu ubicacion actual.',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                const SizedBox(height: 8),
+                ..._tiposServiciosCercanos.map(
+                  (TipoIconoMapaUaa tipo) => ListTile(
+                    leading: Icon(_iconoTipoServicio(tipo)),
+                    title: Text(_nombreTipoServicio(tipo)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _localizarServicioMasCercano(tipo);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Calcula y resalta el servicio mas cercano del tipo elegido
+  void _localizarServicioMasCercano(TipoIconoMapaUaa tipo) {
+    final List<IconoVectorialMapa> iconos = _idCampusMapa == 1
+        ? CampusVectorLayers.iconosCentral
+        : CampusVectorLayers.iconosSur;
+    final List<IconoVectorialMapa> filtrados = iconos
+        .where((IconoVectorialMapa icono) => icono.tipo == tipo)
+        .toList();
+
+    if (filtrados.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No hay ${_nombreTipoServicio(tipo).toLowerCase()} registrado en este campus.',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    final RutaPeatonalUaa ruta = _obtenerRutaActiva();
+    final double refX = _posicionUsuarioEnVivo?.x ?? ruta.origen.posX;
+    final double refY = _posicionUsuarioEnVivo?.y ?? ruta.origen.posY;
+    IconoVectorialMapa masCercano = filtrados.first;
+    double menorDistancia = double.infinity;
+    for (final IconoVectorialMapa icono in filtrados) {
+      final double dx = icono.posX - refX;
+      final double dy = icono.posY - refY;
+      final double distancia = math.sqrt(dx * dx + dy * dy);
+      if (distancia < menorDistancia) {
+        menorDistancia = distancia;
+        masCercano = icono;
+      }
+    }
+
+    final double factorMetros = _idCampusMapa == 1 ? 760.0 : 680.0;
+    final int metros = (menorDistancia * factorMetros).round();
+    final PuntoMapaUaa punto = PuntoMapaUaa(masCercano.posX, masCercano.posY);
+
+    final List<EdificioMapaUaa> edificios = widget.repository
+        .obtenerEdificiosMapa(idCampus: _idCampusMapa);
+    EdificioMapaUaa? edificioDestino;
+    double menorEdificio = double.infinity;
+    for (final EdificioMapaUaa edificio in edificios) {
+      if (edificio.codigo.startsWith('ACCESO')) {
+        continue;
+      }
+      final double dx = edificio.posX - punto.x;
+      final double dy = edificio.posY - punto.y;
+      final double distancia = math.sqrt(dx * dx + dy * dy);
+      if (distancia < menorEdificio) {
+        menorEdificio = distancia;
+        edificioDestino = edificio;
+      }
+    }
+
+    setState(() {
+      _categoriaFiltroActiva = '';
+      _mostrarSugerencias = false;
+      _mostrarServiciosMapa = true;
+      _puntoServicioCercano = punto;
+      _tipoServicioCercano = tipo;
+      _progresoRecorridoUsuario = 0.0;
+      if (edificioDestino != null) {
+        _idNodoDestino = edificioDestino.idNodo;
+      }
+    });
+    if (edificioDestino != null) {
+      _enfocarRutaEnCamara(_obtenerRutaActiva());
+    } else {
+      _centrarPuntoEnCamara(punto);
+    }
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${_nombreTipoServicio(tipo)} mas cercano a $metros m aprox.',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Centra la camara en un punto del mapa conservando un zoom minimo
+  void _centrarPuntoEnCamara(PuntoMapaUaa punto, {double escalaMinima = 2.6}) {
+    if (_tamanoVisor.width <= 0 || _tamanoVisor.height <= 0) {
+      return;
+    }
+    final double escala = math.max(_escalaZoom, escalaMinima);
+    final double centroX = _ultimoOffsetX + punto.x * _ultimoImgW;
+    final double centroY = _ultimoOffsetY + punto.y * _ultimoImgH;
+    final double tx = (_tamanoVisor.width / 2.0) - centroX * escala;
+    final double ty = (_tamanoVisor.height / 2.0) - centroY * escala;
+    final Matrix4 m = Matrix4.identity()
+      ..translateByDouble(tx, ty, 0.0, 1.0)
+      ..scaleByDouble(escala, escala, 1.0, 1.0);
+    _zoomController.value = m;
+  }
+
+  // Nombre legible del tipo de servicio para mensajes
+  String _nombreTipoServicio(TipoIconoMapaUaa tipo) {
+    switch (tipo) {
+      case TipoIconoMapaUaa.estacionamiento:
+        return 'Estacionamiento';
+      case TipoIconoMapaUaa.sanitarios:
+        return 'Baños';
+      case TipoIconoMapaUaa.cafeteria:
+        return 'Cafeteria';
+      case TipoIconoMapaUaa.biblioteca:
+        return 'Biblioteca';
+      case TipoIconoMapaUaa.vigilancia:
+        return 'Vigilancia';
+      case TipoIconoMapaUaa.auditorio:
+        return 'Auditorio';
+    }
+  }
+
+  // Icono del tipo de servicio en el panel de servicios cercanos
+  IconData _iconoTipoServicio(TipoIconoMapaUaa tipo) {
+    switch (tipo) {
+      case TipoIconoMapaUaa.estacionamiento:
+        return Icons.local_parking;
+      case TipoIconoMapaUaa.sanitarios:
+        return Icons.wc;
+      case TipoIconoMapaUaa.cafeteria:
+        return Icons.restaurant;
+      case TipoIconoMapaUaa.biblioteca:
+        return Icons.menu_book;
+      case TipoIconoMapaUaa.vigilancia:
+        return Icons.local_police;
+      case TipoIconoMapaUaa.auditorio:
+        return Icons.groups;
+    }
+  }
+
+  // Color sobrio del anillo que resalta el servicio cercano
+  Color _colorTipoServicio(TipoIconoMapaUaa tipo) {
+    switch (tipo) {
+      case TipoIconoMapaUaa.estacionamiento:
+        return const Color(0xFF1A73E8);
+      case TipoIconoMapaUaa.sanitarios:
+        return const Color(0xFF0F766E);
+      case TipoIconoMapaUaa.cafeteria:
+        return const Color(0xFFB7791F);
+      case TipoIconoMapaUaa.biblioteca:
+        return const Color(0xFF6B3E16);
+      case TipoIconoMapaUaa.vigilancia:
+        return const Color(0xFF334155);
+      case TipoIconoMapaUaa.auditorio:
+        return const Color(0xFF6D28D9);
+    }
+  }
+
   // Controles inferiores derechos identicos a Google Maps: Circulo de Mi Ubicacion arriba y Pildora (+ / -) abajo
   Widget _buildGoogleMapsRightControls(
     bool isDark,
@@ -2418,6 +2775,23 @@ class _InteractiveCampusMapSectionState
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
+        Tooltip(
+          message: 'Servicios cercanos',
+          child: Material(
+            color: cardBg,
+            shape: CircleBorder(side: BorderSide(color: borderCol)),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _abrirServiciosCercanos,
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: Icon(Icons.near_me_outlined, size: 19, color: iconCol),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Tooltip(
           message: _idCampusMapa == 1
               ? 'Cambiar a Campus Sur'
@@ -2556,6 +2930,17 @@ class _InteractiveCampusMapSectionState
         final bool mostrarAccesos = _mostrarAccesosMapa && _escalaZoom >= 1.4;
         final bool mostrarEtiquetas =
             _mostrarEtiquetasMapa && _escalaZoom >= 1.2;
+        final List<EdificioMapaUaa> edificiosFiltrados =
+            _categoriaFiltroActiva.isEmpty
+            ? const <EdificioMapaUaa>[]
+            : edificiosCampus
+                  .where(
+                    (EdificioMapaUaa edificio) => _cumpleCategoriaRapida(
+                      edificio,
+                      _categoriaFiltroActiva,
+                    ),
+                  )
+                  .toList();
 
         final ui.Picture? pictureBase = _modoVectorialEstilizado
             ? _obtenerPictureBase(
@@ -2570,6 +2955,8 @@ class _InteractiveCampusMapSectionState
                 mostrarServicios: mostrarServicios,
                 mostrarAccesos: mostrarAccesos,
                 mostrarEtiquetas: mostrarEtiquetas,
+                categoriaFiltro: _categoriaFiltroActiva,
+                edificiosFiltrados: edificiosFiltrados,
               )
             : null;
         final int anchoCacheMapa = math.min(
@@ -2589,7 +2976,10 @@ class _InteractiveCampusMapSectionState
               event.localPosition,
               edificiosCampus,
             );
-            final String? nuevoHoverId = detectado?.idNodo;
+            final String? nuevoHoverId =
+                detectado != null && _edificioPermitido(detectado)
+                ? detectado.idNodo
+                : null;
             if (nuevoHoverId != _idNodoHover) {
               setState(() {
                 _idNodoHover = nuevoHoverId;
@@ -2667,6 +3057,7 @@ class _InteractiveCampusMapSectionState
                             progresoAnimacion: progress,
                             progresoRecorridoUsuario: _progresoRecorridoUsuario,
                             posicionUsuarioEnVivo: _posicionUsuarioEnVivo,
+                            puntoServicioCercano: _puntoServicioCercano,
                             offsetX: offsetX,
                             offsetY: offsetY,
                             imgW: imgW,
@@ -2697,10 +3088,19 @@ class _InteractiveCampusMapSectionState
                       ),
                     ),
                   ),
-                if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo)
+                if (rutaActiva.origen.idNodo != rutaActiva.destino.idNodo &&
+                    _puntoServicioCercano == null)
                   Positioned(
-                    left: offsetX + rutaActiva.destino.posX * imgW - 10,
-                    top: offsetY + rutaActiva.destino.posY * imgH - 20,
+                    left:
+                        offsetX +
+                        (_puntoServicioCercano?.x ?? rutaActiva.destino.posX) *
+                            imgW -
+                        10,
+                    top:
+                        offsetY +
+                        (_puntoServicioCercano?.y ?? rutaActiva.destino.posY) *
+                            imgH -
+                        20,
                     child: const IgnorePointer(
                       child: Icon(
                         Icons.location_on,
@@ -2722,6 +3122,30 @@ class _InteractiveCampusMapSectionState
                     maxW: availW,
                     maxH: availH,
                     isDark: isDark,
+                  ),
+                if (_puntoServicioCercano != null)
+                  Positioned(
+                    left: offsetX + _puntoServicioCercano!.x * imgW - 11,
+                    top: offsetY + _puntoServicioCercano!.y * imgH - 11,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _tipoServicioCercano != null
+                              ? _colorTipoServicio(_tipoServicioCercano!)
+                                    .withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          border: Border.all(
+                            color: _tipoServicioCercano != null
+                                ? _colorTipoServicio(_tipoServicioCercano!)
+                                : AppColors.primaryNavy,
+                            width: 2.5,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -2770,6 +3194,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
   final bool mostrarServicios;
   final bool mostrarAccesos;
   final bool mostrarEtiquetas;
+  final String categoriaFiltro;
+  final List<EdificioMapaUaa> edificiosFiltrados;
   final bool isDark;
   final List<EdificioMapaUaa> edificiosCampus;
   final RutaPeatonalUaa rutaActiva;
@@ -2777,6 +3203,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
   final double progresoAnimacion;
   final double progresoRecorridoUsuario;
   final PuntoMapaUaa? posicionUsuarioEnVivo;
+  final PuntoMapaUaa? puntoServicioCercano;
   final double offsetX;
   final double offsetY;
   final double imgW;
@@ -2789,6 +3216,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     this.mostrarServicios = false,
     this.mostrarAccesos = true,
     this.mostrarEtiquetas = true,
+    this.categoriaFiltro = '',
+    this.edificiosFiltrados = const <EdificioMapaUaa>[],
     required this.isDark,
     required this.edificiosCampus,
     required this.rutaActiva,
@@ -2796,6 +3225,7 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     required this.progresoAnimacion,
     this.progresoRecorridoUsuario = 0.0,
     this.posicionUsuarioEnVivo,
+    this.puntoServicioCercano,
     required this.offsetX,
     required this.offsetY,
     required this.imgW,
@@ -3665,10 +4095,59 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     }
   }
 
+  // Color gris para los edificios que no coinciden con el filtro activo
+  Color _colorEdificioApagado() {
+    return isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+  }
+
+  // Color de relleno para los edificios que si coinciden con el filtro
+  Color _colorRellenoEdificioActivo(EdificioMapaUaa edificio) {
+    final String zona = edificio.zona.toLowerCase();
+    if (zona.contains('administrativo')) {
+      return isDark ? const Color(0xFFE02F3C) : const Color(0xFFE4222C);
+    }
+    if (zona.contains('aulas')) {
+      return isDark ? const Color(0xFF4B6C9E) : const Color(0xFF475C88);
+    }
+    return isDark ? const Color(0xFFE5C71E) : const Color(0xFFF6DD0E);
+  }
+
+  // Rellena los edificios activos del filtro sobre el gris general
+  void _dibujarRellenosEdificiosFiltrados(Canvas canvas) {
+    if (categoriaFiltro.isEmpty) {
+      return;
+    }
+    for (final EdificioMapaUaa edificio in edificiosFiltrados) {
+      if (edificio.codigo.startsWith('ACCESO') ||
+          edificio.poligono.length < 3) {
+        continue;
+      }
+      final Path path = Path();
+      for (int i = 0; i < edificio.poligono.length; i++) {
+        final double px = offsetX + edificio.poligono[i].x * imgW;
+        final double py = offsetY + edificio.poligono[i].y * imgH;
+        if (i == 0) {
+          path.moveTo(px, py);
+        } else {
+          path.lineTo(px, py);
+        }
+      }
+      path.close();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = _colorRellenoEdificioActivo(edificio)
+          ..style = PaintingStyle.fill,
+      );
+    }
+  }
+
   // Dibuja todas las capas vectoriales 1:1 del campus (areas verdes, andadores, agua, edificios, iconos y textos)
   void _dibujarMapaBaseVectorial(Canvas canvas) {
     final bool esSur = idCampus == 2;
     final double escala = (imgW / 950.0).clamp(0.65, 1.45);
+    final bool filtroActivo = categoriaFiltro.isNotEmpty;
+    final Color colorEdificioApagado = _colorEdificioApagado();
 
     // 1. Areas verdes oficiales del campus
     final Path verdePath = _construirPathEvenOdd(
@@ -3712,9 +4191,13 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     canvas.drawPath(
       azulPath,
       Paint()
-        ..color = esSur
-            ? (isDark ? const Color(0xFF2B3558) : const Color(0xFF232A48))
-            : (isDark ? const Color(0xFF4B6C9E) : const Color(0xFF475C88))
+        ..color = filtroActivo
+            ? colorEdificioApagado
+            : (esSur
+                  ? (isDark ? const Color(0xFF2B3558) : const Color(0xFF232A48))
+                  : (isDark
+                        ? const Color(0xFF4B6C9E)
+                        : const Color(0xFF475C88)))
         ..style = PaintingStyle.fill,
     );
 
@@ -3727,9 +4210,13 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     canvas.drawPath(
       amarilloPath,
       Paint()
-        ..color = esSur
-            ? (isDark ? const Color(0xFFD99B16) : const Color(0xFFEBA818))
-            : (isDark ? const Color(0xFFE5C71E) : const Color(0xFFF6DD0E))
+        ..color = filtroActivo
+            ? colorEdificioApagado
+            : (esSur
+                  ? (isDark ? const Color(0xFFD99B16) : const Color(0xFFEBA818))
+                  : (isDark
+                        ? const Color(0xFFE5C71E)
+                        : const Color(0xFFF6DD0E)))
         ..style = PaintingStyle.fill,
     );
 
@@ -3740,7 +4227,9 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       canvas.drawPath(
         infraAmarillaPath,
         Paint()
-          ..color = isDark ? const Color(0xFFF6E01E) : const Color(0xFFFFF000)
+          ..color = filtroActivo
+              ? colorEdificioApagado
+              : (isDark ? const Color(0xFFF6E01E) : const Color(0xFFFFF000))
           ..style = PaintingStyle.fill,
       );
     }
@@ -3752,9 +4241,15 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     canvas.drawPath(
       rojoPath,
       Paint()
-        ..color = isDark ? const Color(0xFFE02F3C) : const Color(0xFFE4222C)
+        ..color = filtroActivo
+            ? colorEdificioApagado
+            : (isDark ? const Color(0xFFE02F3C) : const Color(0xFFE4222C))
         ..style = PaintingStyle.fill,
     );
+
+    if (filtroActivo) {
+      _dibujarRellenosEdificiosFiltrados(canvas);
+    }
 
     // 7. Detalles del Edificio 1 (Infoteca), Estadio, Canchas, Flecha Norte y Bandera Monumental Ondulando
     if (!esSur) {
@@ -3808,10 +4303,16 @@ class _VectorCampusOverlayPainter extends CustomPainter {
     }
 
     // 10. Numeros vectoriales nitidos sobre cada uno de los 154 / 19 edificios individuales
-    if (mostrarNumeros) {
+    final Set<String> idsFiltrados = categoriaFiltro.isEmpty
+        ? const <String>{}
+        : edificiosFiltrados.map((EdificioMapaUaa e) => e.idNodo).toSet();
+    if (mostrarNumeros || categoriaFiltro.isNotEmpty) {
       final double fontEdif = (esSur ? 11.8 : 7.6) * escala;
       for (final EdificioMapaUaa edif in edificiosCampus) {
         if (edif.codigo.startsWith('ACCESO')) {
+          continue;
+        }
+        if (categoriaFiltro.isNotEmpty && !idsFiltrados.contains(edif.idNodo)) {
           continue;
         }
         final String numTexto = edif.codigo.replaceFirst('EDIF ', '');
@@ -3855,6 +4356,94 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         tpHalo.paint(canvas, textOffset);
         tpFill.paint(canvas, textOffset);
       }
+    }
+    if (categoriaFiltro.isNotEmpty) {
+      _dibujarEdificiosDesactivados(canvas);
+    }
+  }
+
+  // Atenua los edificios que no pertenecen al filtro sin tapar el mapa
+  void _dibujarEdificiosDesactivados(Canvas canvas) {
+    if (categoriaFiltro.isEmpty || edificiosFiltrados.isEmpty) {
+      return;
+    }
+    final Set<String> activos = edificiosFiltrados
+        .map((EdificioMapaUaa edificio) => edificio.idNodo)
+        .toSet();
+    final Color disabledColor = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFCBD5E1);
+    final Paint fillPaint = Paint()
+      ..color = disabledColor.withValues(alpha: 0.94)
+      ..style = PaintingStyle.fill;
+    final Paint coverPaint = Paint()
+      ..color = disabledColor.withValues(alpha: 0.94)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    final Paint borderPaint = Paint()
+      ..color = (isDark ? Colors.white24 : const Color(0xFF94A3B8)).withValues(
+        alpha: 0.55,
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final EdificioMapaUaa edificio in edificiosCampus) {
+      if (edificio.codigo.startsWith('ACCESO')) {
+        continue;
+      }
+      if (activos.contains(edificio.idNodo)) {
+        continue;
+      }
+      if (edificio.poligono.length < 3) {
+        continue;
+      }
+      final Path path = Path();
+      for (int i = 0; i < edificio.poligono.length; i++) {
+        final double px = offsetX + edificio.poligono[i].x * imgW;
+        final double py = offsetY + edificio.poligono[i].y * imgH;
+        if (i == 0) {
+          path.moveTo(px, py);
+        } else {
+          path.lineTo(px, py);
+        }
+      }
+      path.close();
+      canvas.drawPath(path, coverPaint);
+      canvas.drawPath(path, fillPaint);
+      canvas.drawPath(path, borderPaint);
+    }
+
+    final Paint haloPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.2
+      ..strokeJoin = StrokeJoin.round;
+    final Paint resaltadoPaint = Paint()
+      ..color = isDark ? const Color(0xFF93C5FD) : AppColors.primaryNavy
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final EdificioMapaUaa edificio in edificiosFiltrados) {
+      if (edificio.poligono.length < 3) {
+        continue;
+      }
+      final Path path = Path();
+      for (int i = 0; i < edificio.poligono.length; i++) {
+        final double px = offsetX + edificio.poligono[i].x * imgW;
+        final double py = offsetY + edificio.poligono[i].y * imgH;
+        if (i == 0) {
+          path.moveTo(px, py);
+        } else {
+          path.lineTo(px, py);
+        }
+      }
+      path.close();
+      canvas.drawPath(path, haloPaint);
+      canvas.drawPath(path, resaltadoPaint);
     }
   }
 
@@ -4021,6 +4610,35 @@ class _VectorCampusOverlayPainter extends CustomPainter {
       canvas.drawPath(rutaPath, lineaRutaPaint);
     }
 
+    // Conector final desde el edificio mas cercano hasta el servicio elegido
+    if (puntoServicioCercano != null && pathIniciado && puntos.isNotEmpty) {
+      final Offset servicio = Offset(
+        offsetX + puntoServicioCercano!.x * imgW,
+        offsetY + puntoServicioCercano!.y * imgH,
+      );
+      final Path conectorServicio = Path()
+        ..moveTo(puntos.last.dx, puntos.last.dy)
+        ..lineTo(servicio.dx, servicio.dy);
+      canvas.drawPath(
+        conectorServicio,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.6
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+      canvas.drawPath(
+        conectorServicio,
+        Paint()
+          ..color = const Color(0xFF1A73E8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.8
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+
     final Paint puntoBlancoPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
@@ -4081,6 +4699,8 @@ class _VectorCampusOverlayPainter extends CustomPainter {
         oldDelegate.progresoRecorridoUsuario != progresoRecorridoUsuario ||
         oldDelegate.posicionUsuarioEnVivo?.x != posicionUsuarioEnVivo?.x ||
         oldDelegate.posicionUsuarioEnVivo?.y != posicionUsuarioEnVivo?.y ||
+        oldDelegate.puntoServicioCercano?.x != puntoServicioCercano?.x ||
+        oldDelegate.puntoServicioCercano?.y != puntoServicioCercano?.y ||
         oldDelegate.dibujarCapasBaseVectoriales !=
             dibujarCapasBaseVectoriales ||
         oldDelegate.isDark != isDark ||

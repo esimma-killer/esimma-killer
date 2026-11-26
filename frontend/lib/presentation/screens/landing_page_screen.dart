@@ -22,6 +22,7 @@ class LandingPageScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
   final ValueChanged<bool>? onRoleChanged;
+  final ValueChanged<String>? onSectionChanged;
   final PortalRepository repository;
 
   const LandingPageScreen({
@@ -29,6 +30,7 @@ class LandingPageScreen extends StatefulWidget {
     required this.isDarkMode,
     required this.onToggleTheme,
     this.onRoleChanged,
+    this.onSectionChanged,
     this.repository = const PortalRepository(),
   });
 
@@ -189,12 +191,33 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     setState(() {
       _seccionActiva = nuevaSeccion;
     });
+    if (widget.onSectionChanged != null) {
+      widget.onSectionChanged!(_nombreVista(nuevaSeccion));
+    }
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         0,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
+    }
+  }
+
+  // Devuelve el nombre legible de la vista para la pestana y la ventana
+  String _nombreVista(SeccionPortalUaa seccion) {
+    switch (seccion) {
+      case SeccionPortalUaa.inicio:
+        return 'Inicio';
+      case SeccionPortalUaa.mapaUniversitario:
+        return 'Mapa Universitario';
+      case SeccionPortalUaa.serviciosHorarios:
+        return 'Servicios y Horarios';
+      case SeccionPortalUaa.transporteUniversitario:
+        return 'Transporte Universitario';
+      case SeccionPortalUaa.actividadesCreditos:
+        return 'Actividades y Creditos';
+      case SeccionPortalUaa.calendarioDirectorio:
+        return 'Calendario y Tramites';
     }
   }
 

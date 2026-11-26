@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'core/constants/app_constants.dart';
+import 'core/services/window_title_service.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/screens/landing_page_screen.dart';
 
@@ -22,8 +22,11 @@ class EsimmaApp extends StatefulWidget {
 }
 
 class _EsimmaAppState extends State<EsimmaApp> {
+  final WindowTitleService _windowTitleService = const WindowTitleService();
   bool _isDarkMode = false;
-  String _tabTitle = AppConstants.appNameAlumno;
+  bool _esProfesor = false;
+  String _vistaActual = 'Inicio';
+  String _tabTitle = 'UAA | Alumno - Inicio';
 
   // Alterna entre el modo visual claro y el modo oscuro con interpolacion suave
   void _toggleTheme() {
@@ -32,11 +35,16 @@ class _EsimmaAppState extends State<EsimmaApp> {
     });
   }
 
-  // Actualiza el nombre de la pestana del navegador a UAA | Alumno o UAA | Profesor
-  void _updateBrowserTabTitle(bool esProfesor) {
-    final String nuevoTitulo = esProfesor
-        ? AppConstants.appNameProfesor
-        : AppConstants.appNameAlumno;
+  // Actualiza el titulo de la pestana y de la ventana de Windows con rol y vista actual
+  void _actualizarTitulo({bool? esProfesor, String? vista}) {
+    if (esProfesor != null) {
+      _esProfesor = esProfesor;
+    }
+    if (vista != null && vista.isNotEmpty) {
+      _vistaActual = vista;
+    }
+    final String rol = _esProfesor ? 'Profesor' : 'Alumno';
+    final String nuevoTitulo = 'UAA | $rol - $_vistaActual';
     if (_tabTitle != nuevoTitulo) {
       setState(() {
         _tabTitle = nuevoTitulo;
@@ -48,6 +56,7 @@ class _EsimmaAppState extends State<EsimmaApp> {
         primaryColor: 0xFF15325E,
       ),
     );
+    _windowTitleService.actualizar(nuevoTitulo);
   }
 
   // Construye el MaterialApp con cambio instantaneo de tema sin interpolacion por cuadros
@@ -66,7 +75,9 @@ class _EsimmaAppState extends State<EsimmaApp> {
         child: LandingPageScreen(
           isDarkMode: _isDarkMode,
           onToggleTheme: _toggleTheme,
-          onRoleChanged: _updateBrowserTabTitle,
+          onRoleChanged: (bool esProfesor) =>
+              _actualizarTitulo(esProfesor: esProfesor),
+          onSectionChanged: (String vista) => _actualizarTitulo(vista: vista),
         ),
       ),
     );
